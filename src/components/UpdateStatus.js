@@ -234,18 +234,21 @@ const UpdateStatus = () => {
   };
   const representingStatus = async (status) => {
     message.info("Representing in progress..", 5);
-
     api.then((tcapi) => {
       tcapi.project.getProject().then((result) => {
         setProjectId(result.id);
       });
     });
-    const model_ids = data.data.map(x=>x.modelId)
+    if (typeof data === "undefined" || typeof data.data === "undefined") {
+      message.error("Please select models to apply representation");
+      return;
+    }
+    const model_ids = data.data.map((x) => x.modelId);
     api.then(async (tcapi) => {
       const objects = await tcapi.viewer.getObjects();
       objects.forEach(async (model) => {
         const modelId = model.modelId;
-        if(model_ids.indexOf(modelId)<0) return;
+        if (model_ids.indexOf(modelId) < 0) return;
         const objects_id = model.objects.map((x) => x.id);
 
         const external_ids = await tcapi.viewer.convertToObjectIds(
@@ -255,11 +258,6 @@ const UpdateStatus = () => {
         console.log(external_ids);
 
         const original_ids = external_ids.map((x) => x.replace("$", ""));
-        // const properties = await tcapi.viewer.getObjectProperties(
-        //   modelId,
-        //   data.data[0].objectRuntimeIds
-        // );
-        // console.log(properties)
 
         const url = `https://europe.tcstatus.tekla.com/statusapi/1.0`;
         const res_status_token = await axios.post(
@@ -281,6 +279,7 @@ const UpdateStatus = () => {
             },
           }
         );
+
         const statuses = res_statuses.data.map((x) => {
           if (x.name === "1) Planning") {
             return {
@@ -357,7 +356,7 @@ const UpdateStatus = () => {
         console.log(model_obj_ids);
 
         console.log(current_status);
-
+        if (model_obj_ids.length === 0) return;
         tcapi.viewer.setObjectState(
           {
             modelObjectIds: [
@@ -384,12 +383,16 @@ const UpdateStatus = () => {
         setProjectId(result.id);
       });
     });
-    const model_ids = data.data.map(x=>x.modelId)
+    if (typeof data === "undefined" || typeof data.data === "undefined") {
+      message.error("Please select models to apply representation");
+      return;
+    }
+    const model_ids = data.data.map((x) => x.modelId);
     api.then(async (tcapi) => {
       const objects = await tcapi.viewer.getObjects();
       objects.forEach(async (model) => {
         const modelId = model.modelId;
-        if(model_ids.indexOf(modelId)<0) return
+        if (model_ids.indexOf(modelId) < 0) return;
         const objects_id = model.objects.map((x) => x.id);
 
         const external_ids = await tcapi.viewer.convertToObjectIds(
@@ -487,20 +490,22 @@ const UpdateStatus = () => {
             if (index < 0) return;
             model_obj_ids.push(index);
           });
-          tcapi.viewer.setObjectState(
-            {
-              modelObjectIds: [
-                {
-                  modelId: modelId,
-                  objectRuntimeIds: model_obj_ids,
-                },
-              ],
-            },
-            {
-              color: current_status.color,
-              visible: true,
-            }
-          );
+          tcapi.viewer
+            .setObjectState(
+              {
+                modelObjectIds: [
+                  {
+                    modelId: modelId,
+                    objectRuntimeIds: model_obj_ids,
+                  },
+                ],
+              },
+              {
+                color: current_status.color,
+                visible: true,
+              }
+            )
+            .then((result) => {console.log(result)});
         });
       });
     });
@@ -512,13 +517,17 @@ const UpdateStatus = () => {
         setProjectId(result.id);
       });
     });
-    const model_ids = data.data.map(x=>x.modelId)
+    if (typeof data === "undefined" || typeof data.data === "undefined") {
+      message.error("Please select models to apply representation");
+      return;
+    }
+    const model_ids = data.data.map((x) => x.modelId);
     api.then(async (tcapi) => {
       const objects = await tcapi.viewer.getObjects();
       objects.forEach(async (model) => {
         const modelId = model.modelId;
-        if(model_ids.indexOf(modelId) <0) return;
-        console.log(modelId)
+        if (model_ids.indexOf(modelId) < 0) return;
+        console.log(modelId);
         const objects_id = model.objects.map((x) => x.id);
         console.log(objects_id);
 
