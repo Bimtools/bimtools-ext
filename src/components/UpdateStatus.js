@@ -240,11 +240,12 @@ const UpdateStatus = () => {
         setProjectId(result.id);
       });
     });
-
+    const model_ids = data.data.map(x=>x.modelId)
     api.then(async (tcapi) => {
       const objects = await tcapi.viewer.getObjects();
       objects.forEach(async (model) => {
         const modelId = model.modelId;
+        if(model_ids.indexOf(modelId)<0) return;
         const objects_id = model.objects.map((x) => x.id);
 
         const external_ids = await tcapi.viewer.convertToObjectIds(
@@ -383,11 +384,12 @@ const UpdateStatus = () => {
         setProjectId(result.id);
       });
     });
-
+    const model_ids = data.data.map(x=>x.modelId)
     api.then(async (tcapi) => {
       const objects = await tcapi.viewer.getObjects();
       objects.forEach(async (model) => {
         const modelId = model.modelId;
+        if(model_ids.indexOf(modelId)<0) return
         const objects_id = model.objects.map((x) => x.id);
 
         const external_ids = await tcapi.viewer.convertToObjectIds(
@@ -510,11 +512,12 @@ const UpdateStatus = () => {
         setProjectId(result.id);
       });
     });
-    console.log(data)
+    const model_ids = data.data.map(x=>x.modelId)
     api.then(async (tcapi) => {
       const objects = await tcapi.viewer.getObjects();
-      data.data.forEach(async (model) => {
+      objects.forEach(async (model) => {
         const modelId = model.modelId;
+        if(model_ids.indexOf(modelId) <0) return;
         console.log(modelId)
         const objects_id = model.objects.map((x) => x.id);
         console.log(objects_id);
