@@ -20,7 +20,7 @@ const UpdateStatus = () => {
     const api = WorkspaceAPI.connect(window.parent, (event, data) => {
       setEvent(event);
       setData(data);
-      // console.log(event);
+      //console.log(event);
       // console.log(data);
     });
     setApi(api);
@@ -232,10 +232,9 @@ const UpdateStatus = () => {
         message.error("Update failed");
       });
   };
-  const representingStatus = (status) => {
-    message.info("Representing in progress..",2.5)
-    //console.log(data.data[0].objectRuntimeIds)
-    //Get current project
+  const representingStatus = async (status) => {
+    message.info("Representing in progress..", 5);
+
     api.then((tcapi) => {
       tcapi.project.getProject().then((result) => {
         setProjectId(result.id);
@@ -243,33 +242,18 @@ const UpdateStatus = () => {
     });
 
     api.then(async (tcapi) => {
-      console.log(tcapi)
       const objects = await tcapi.viewer.getObjects();
-      console.log(objects)
-      objects.forEach(async model => {
+      objects.forEach(async (model) => {
         const modelId = model.modelId;
         const objects_id = model.objects.map((x) => x.id);
-        console.log(objects_id)
-
-        // tcapi.viewer.setObjectState({
-        //   modelObjectIds: [
-        //     {
-        //       modelId: modelId,
-        //       objectRuntimeIds: data.data[0].objectRuntimeIds,
-        //     },
-        //   ],
-        // }, {
-        //   color: "#d1cdc7",
-        //   visible: true,
-        // })
 
         const external_ids = await tcapi.viewer.convertToObjectIds(
           modelId,
           objects_id
         );
-        console.log(external_ids)
+        console.log(external_ids);
 
-        const original_ids = external_ids.map(x => x.replace('$', ''))
+        const original_ids = external_ids.map((x) => x.replace("$", ""));
         // const properties = await tcapi.viewer.getObjectProperties(
         //   modelId,
         //   data.data[0].objectRuntimeIds
@@ -369,49 +353,155 @@ const UpdateStatus = () => {
           if (index < 0) return;
           model_obj_ids.push(index);
         });
-        console.log(model_obj_ids)
+        console.log(model_obj_ids);
 
         console.log(current_status);
-        // tcapi.viewer.setSelection({
-        //   modelObjectIds: [
-        //     {
-        //       modelId: modelId,
-        //       objectRuntimeIds: [2001],
-        //     },
-        //   ],
-        // }, "add")
-        tcapi.viewer.setObjectState({
-          modelObjectIds: [
-            {
-              modelId: modelId,
-              objectRuntimeIds: model_obj_ids,
-            },
-          ],
-        }, {
-          color: current_status.color,
-          visible: true,
-        })
 
-        // tcapi.viewer.setObjectState(
-        //   {
-        //     modelObjectIds: [
-        //       {
-        //         modelId: modelId,
-        //         objectRuntimeIds: [2001],
-        //         parameter:{
-        //           class:'IFCELEMENTASSEMBLY'
-        //         }
-        //       },
-        //     ],
-        //   },
-        //   {
-        //     color: current_status.color,
-        //     visible: true,
-        //   }
-        // );
-      })
+        tcapi.viewer.setObjectState(
+          {
+            modelObjectIds: [
+              {
+                modelId: modelId,
+                objectRuntimeIds: model_obj_ids,
+              },
+            ],
+          },
+          {
+            color: current_status.color,
+            visible: true,
+          }
+        );
+      });
     });
-    message.success("Action has been done",5)
+  };
+
+  const allSattus = async () => {
+    message.info("Representing in progress..", 5);
+
+    api.then((tcapi) => {
+      tcapi.project.getProject().then((result) => {
+        setProjectId(result.id);
+      });
+    });
+
+    api.then(async (tcapi) => {
+      const objects = await tcapi.viewer.getObjects();
+      objects.forEach(async (model) => {
+        const modelId = model.modelId;
+        const objects_id = model.objects.map((x) => x.id);
+
+        const external_ids = await tcapi.viewer.convertToObjectIds(
+          modelId,
+          objects_id
+        );
+
+        const original_ids = external_ids.map((x) => x.replace("$", ""));
+        const url = `https://europe.tcstatus.tekla.com/statusapi/1.0`;
+        const res_status_token = await axios.post(
+          `${url}/auth/token`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${accesstoken}`,
+            },
+          }
+        );
+        const status_token = res_status_token.data;
+        //Get action status
+        const res_statuses = await axios.get(
+          `${url}/projects/${projectId}/statusactions`,
+          {
+            headers: {
+              Authorization: `Bearer ${status_token}`,
+            },
+          }
+        );
+        const statuses = res_statuses.data.map((x) => {
+          if (x.name === "1) Planning") {
+            return {
+              id: x.id,
+              color: "#F1C40F",
+              name: x.name,
+            };
+          } else if (x.name === "2) In Fabrication") {
+            return {
+              id: x.id,
+              color: "#1ABC9C",
+              name: x.name,
+            };
+          } else if (x.name === "3) In Treatment") {
+            return {
+              id: x.id,
+              color: "#2980B9",
+              name: x.name,
+            };
+          } else if (x.name === "3.1) OSWI Completed") {
+            return {
+              id: x.id,
+              color: "#9B59B6",
+              name: x.name,
+            };
+          } else if (x.name === "4) At Dispatch") {
+            return {
+              id: x.id,
+              color: "#E74C3C",
+              name: x.name,
+            };
+          } else if (x.name === "5) Shipped") {
+            return {
+              id: x.id,
+              color: "#B9770E",
+              name: x.name,
+            };
+          } else if (x.name === "Status1") {
+            return {
+              id: x.id,
+              color: "#25cf0e",
+              name: x.name,
+            };
+          } else if (x.name === "Status2") {
+            return {
+              id: x.id,
+              color: "#cf0e18",
+              name: x.name,
+            };
+          }
+        });
+
+        statuses.forEach(async (current_status) => {
+          //Get element statuses
+          const res_status = await axios.get(
+            `${url}/projects/${projectId}/status?statusActionId=${current_status.id}`,
+            {
+              headers: {
+                Authorization: `Bearer ${status_token}`,
+              },
+            }
+          );
+          const ids = res_status.data.map((x) => x.objectId);
+          let model_obj_ids = [];
+          ids.forEach((id) => {
+            const index = original_ids.indexOf(id);
+            if (index < 0) return;
+            model_obj_ids.push(index);
+          });
+          tcapi.viewer.setObjectState(
+            {
+              modelObjectIds: [
+                {
+                  modelId: modelId,
+                  objectRuntimeIds: model_obj_ids,
+                },
+              ],
+            },
+            {
+              color: current_status.color,
+              visible: true,
+            }
+          );
+        });
+      });
+    });
   };
 
   const resetColor = () => {
@@ -420,28 +510,29 @@ const UpdateStatus = () => {
         setProjectId(result.id);
       });
     });
-
+    console.log(data)
     api.then(async (tcapi) => {
-      console.log(tcapi)
       const objects = await tcapi.viewer.getObjects();
-      console.log(objects)
-      objects.forEach(async model => {
+      data.data.forEach(async (model) => {
         const modelId = model.modelId;
+        console.log(modelId)
         const objects_id = model.objects.map((x) => x.id);
-        console.log(objects_id)
+        console.log(objects_id);
 
-        tcapi.viewer.setObjectState({
-          modelObjectIds: [
-            {
-              modelId: modelId,
-              objectRuntimeIds: objects_id,
-            },
-          ],
-        }, {
-          color: "reset",
-        })
-
-      })
+        tcapi.viewer.setObjectState(
+          {
+            modelObjectIds: [
+              {
+                modelId: modelId,
+                objectRuntimeIds: objects_id,
+              },
+            ],
+          },
+          {
+            color: "reset",
+          }
+        );
+      });
     });
   };
   return (
@@ -534,6 +625,9 @@ const UpdateStatus = () => {
             style={{ background: "#B9770E" }}
             onClick={() => representingStatus(`5) Shipped`)}
           >{`5) Shipped`}</Button>
+          <Button type="primary" onClick={allSattus}>
+            Show All Status
+          </Button>
           <Button type="primary" onClick={resetColor}>
             Reset Color
           </Button>
