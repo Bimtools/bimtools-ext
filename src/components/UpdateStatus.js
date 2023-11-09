@@ -20,8 +20,6 @@ const UpdateStatus = () => {
     const api = WorkspaceAPI.connect(window.parent, (event, data) => {
       setEvent(event);
       setData(data);
-      //console.log(event);
-      // console.log(data);
     });
     setApi(api);
   }, []);
@@ -376,147 +374,55 @@ const UpdateStatus = () => {
   };
 
   const allSattus = async () => {
-    message.info("Representing in progress..", 5);
-
-    api.then((tcapi) => {
-      tcapi.project.getProject().then((result) => {
-        setProjectId(result.id);
-      });
-    });
     if (typeof data === "undefined" || typeof data.data === "undefined") {
       message.error("Please select models to apply representation");
       return;
     }
     const model_ids = data.data.map((x) => x.modelId);
     api.then(async (tcapi) => {
-      const objects = await tcapi.viewer.getObjects();
+      const object_selector = {
+        parameter: {
+          class: "IFCELEMENTASSEMBLY",
+        },
+      };
+      const objects = await tcapi.viewer.getObjects(object_selector);
       objects.forEach(async (model) => {
         const modelId = model.modelId;
         if (model_ids.indexOf(modelId) < 0) return;
         const objects_id = model.objects.map((x) => x.id);
-
-        const external_ids = await tcapi.viewer.convertToObjectIds(
-          modelId,
-          objects_id
-        );
-
-        const original_ids = external_ids.map((x) => x.replace("$", ""));
-        const url = `https://europe.tcstatus.tekla.com/statusapi/1.0`;
-        const res_status_token = await axios.post(
-          `${url}/auth/token`,
-          {},
-          {
-            headers: {
-              Authorization: `Bearer ${accesstoken}`,
-            },
-          }
-        );
-        const status_token = res_status_token.data;
-        //Get action status
-        const res_statuses = await axios.get(
-          `${url}/projects/${projectId}/statusactions`,
-          {
-            headers: {
-              Authorization: `Bearer ${status_token}`,
-            },
-          }
-        );
-        const statuses = res_statuses.data.map((x) => {
-          if (x.name === "1) Planning") {
-            return {
-              id: x.id,
-              color: "#F1C40F",
-              name: x.name,
-            };
-          } else if (x.name === "2) In Fabrication") {
-            return {
-              id: x.id,
-              color: "#1ABC9C",
-              name: x.name,
-            };
-          } else if (x.name === "3) In Treatment") {
-            return {
-              id: x.id,
-              color: "#2980B9",
-              name: x.name,
-            };
-          } else if (x.name === "3.1) OSWI Completed") {
-            return {
-              id: x.id,
-              color: "#9B59B6",
-              name: x.name,
-            };
-          } else if (x.name === "4) At Dispatch") {
-            return {
-              id: x.id,
-              color: "#E74C3C",
-              name: x.name,
-            };
-          } else if (x.name === "5) Shipped") {
-            return {
-              id: x.id,
-              color: "#B9770E",
-              name: x.name,
-            };
-          } else if (x.name === "Status1") {
-            return {
-              id: x.id,
-              color: "#25cf0e",
-              name: x.name,
-            };
-          } else if (x.name === "Status2") {
-            return {
-              id: x.id,
-              color: "#cf0e18",
-              name: x.name,
-            };
-          }
-        });
-
-        statuses.forEach(async (current_status) => {
-          //Get element statuses
-          const res_status = await axios.get(
-            `${url}/projects/${projectId}/status?statusActionId=${current_status.id}`,
-            {
-              headers: {
-                Authorization: `Bearer ${status_token}`,
-              },
-            }
-          );
-          const ids = res_status.data.map((x) => x.objectId);
-          let model_obj_ids = [];
-          ids.forEach((id) => {
-            const index = original_ids.indexOf(id);
-            if (index < 0) return;
-            model_obj_ids.push(index);
-          });
-          tcapi.viewer
-            .setObjectState(
-              {
-                modelObjectIds: [
-                  {
-                    modelId: modelId,
-                    objectRuntimeIds: model_obj_ids,
-                  },
-                ],
-              },
-              {
-                color: current_status.color,
-                visible: true,
+        tcapi.viewer.getObjectProperties(modelId, objects_id).then((data) => {
+          console.log(data);
+          let fabricated_ids = [];
+          let fabricating_ids = [];
+          data.map((x) => {
+            const properties = x.properties;
+            properties.map((p) => {
+              if (p.name === "ASSEMBLY") {
+                p.properties.map((a) => {
+                  if (a.name !== "TS_FAB_Contractor_Comment") return;
+                  fabricated_ids.push(x.id)
+                });
               }
-            )
-            .then((result) => {console.log(result)});
+            });
+          });
+          console.log(fabricated_ids)
+          tcapi.viewer.setObjectState({
+            modelObjectIds: [
+              {
+                modelId: modelId,
+                objectRuntimeIds: fabricated_ids,
+              },
+            ],
+          }, {
+            color: "#25cf0e",
+            visible: true,
+          })
         });
       });
     });
   };
 
   const resetColor = () => {
-    api.then((tcapi) => {
-      tcapi.project.getProject().then((result) => {
-        setProjectId(result.id);
-      });
-    });
     if (typeof data === "undefined" || typeof data.data === "undefined") {
       message.error("Please select models to apply representation");
       return;
@@ -524,6 +430,7 @@ const UpdateStatus = () => {
     const model_ids = data.data.map((x) => x.modelId);
     api.then(async (tcapi) => {
       const objects = await tcapi.viewer.getObjects();
+      console.log(objects);
       objects.forEach(async (model) => {
         const modelId = model.modelId;
         if (model_ids.indexOf(modelId) < 0) return;
@@ -557,103 +464,14 @@ const UpdateStatus = () => {
             flexWrap: "wrap",
             rowGap: "5px",
             columnGap: "5px",
-            padding: "5px",
-            paddingLeft: "0px",
           }}
         >
-          <input
-            type="file"
-            onChange={(event) => {
-              const file = event.target.files[0];
-              readExcel(file);
-            }}
-          />
-        </div>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "row",
-            flexWrap: "wrap",
-            rowGap: "5px",
-            columnGap: "5px",
-          }}
-        >
-          <Form>
-            <Form.Item label="Access Token">
-              <Input
-                value={accesstoken}
-                onChange={(e) => setAccesstoken(e.target.value)}
-              />
-            </Form.Item>
-            {/* <Form.Item label="Model Name">
-              <Input
-                value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-              />
-            </Form.Item> */}
-          </Form>
-          <Button
-            type="primary"
-            onClick={() => {
-              api.then((tcapi) => {
-                tcapi.extension.getPermission("accesstoken").then((result) => {
-                  setAccesstoken(result);
-                });
-              });
-            }}
-          >
-            Get AccessToken
-          </Button>
-          <Button type="primary" onClick={updateStatusHandle1}>
-            Update Status
-          </Button>
-          <Button
-            type="primary"
-            style={{ background: "#F1C40F" }}
-            onClick={() => representingStatus(`1) Planning`)}
-          >{`1) Planning`}</Button>
-          <Button
-            type="primary"
-            style={{ background: "#1ABC9C" }}
-            onClick={() => representingStatus(`2) In Fabrication`)}
-          >{`2) In Fabrication`}</Button>
-          <Button
-            type="primary"
-            style={{ background: "#2980B9" }}
-            onClick={() => representingStatus(`3) In Treatment`)}
-          >{`3) In Treatment`}</Button>
-          <Button
-            type="primary"
-            style={{ background: "#9B59B6" }}
-            onClick={() => representingStatus(`3.1) OSWI Completed`)}
-          >{`3.1) OSWI Completed`}</Button>
-          <Button
-            type="primary"
-            style={{ background: "#E74C3C" }}
-            onClick={() => representingStatus(`4) At Dispatch`)}
-          >{`4) At Dispatch`}</Button>
-          <Button
-            type="primary"
-            style={{ background: "#B9770E" }}
-            onClick={() => representingStatus(`5) Shipped`)}
-          >{`5) Shipped`}</Button>
           <Button type="primary" onClick={allSattus}>
             Show All Status
           </Button>
           <Button type="primary" onClick={resetColor}>
             Reset Color
           </Button>
-          {/* <Button
-            type="primary"
-            onClick={() => {
-              api.then(async (tcapi) => {
-                const a = await tcapi.project.getProject()
-                console.log(a)
-              });
-            }}
-          >
-            Current Project
-          </Button> */}
         </div>
       </Content>
     </Layout>
