@@ -1,21 +1,75 @@
-import React, { useEffect, useState } from "react";
-import axios, { AxiosError, AxiosResponse } from "axios";
-import * as XLSX from "xlsx";
+import React, { useEffect, useState, MouseEvent, useRef } from "react";
 import * as WorkspaceAPI from "trimble-connect-workspace-api";
-import { Layout, Button, message, Input, Form } from "antd";
-import { Format } from "../services/GUIDConversion";
+import { Layout, Button, message } from "antd";
+import {
+  Pie, getDatasetAtEvent,
+  getElementAtEvent,
+  getElementsAtEvent,
+} from "react-chartjs-2";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
+
 
 const { Content } = Layout;
+ChartJS.register(ArcElement, Tooltip, Legend);
+
+const FabData = [
+  {
+    Status: "Not Yet Started",
+    Color: "rgb(153,153,153)",
+    TC_Color: {
+      a: 50,
+      b: 153,
+      g: 153,
+      r: 153
+    },
+  },
+  {
+    Status: "Deliveried",
+    Color: "rgb(226,56,236)",
+    TC_Color: {
+      a: 255,
+      b: 236,
+      g: 56,
+      r: 226
+    },
+  },
+  {
+    Status: "Fabricated",
+    Color: "rgb(0,0,255)",
+    TC_Color: {
+      a: 255,
+      b: 255,
+      g: 0,
+      r: 0
+    },
+  },
+  {
+    Status: "In Fabrication",
+    Color: "rgb(255,191,0)",
+    TC_Color: {
+      a: 255,
+      b: 0,
+      g: 191,
+      r: 255
+    },
+  },
+
+]
+const fab_Statues = FabData.map(x => x.Status)
+const fab_Colors = FabData.map(x => x.Color)
 
 const UpdateStatus = () => {
   const [event, setEvent] = useState();
   const [data, setData] = useState();
+  const [fabricatedCount, setFabricatedCount] = useState(0);
+  const [fabricatingCount, setFabricatingCount] = useState(0);
+  const [deliveriedCount, setDeliveriedCount] = useState(0);
+  const [notYetStartedCount, setNotYetStartedCount] = useState(0);
+  const [modelObjects, setModelObjects] = useState([]);
   const [api, setApi] = useState();
-  const [guids, setGuids] = useState([]);
-  const [rows, setRows] = useState([]);
-  const [accesstoken, setAccesstoken] = useState();
-  const [projectId, setProjectId] = useState();
-  const [projectName, setProjectName] = useState();
+
+  const chartRef = useRef();
+
   useEffect(() => {
     const api = WorkspaceAPI.connect(window.parent, (event, data) => {
       setEvent(event);
@@ -23,361 +77,17 @@ const UpdateStatus = () => {
     });
     setApi(api);
   }, []);
-  const readExcel = (file) => {
-    const promise = new Promise((resolve, reject) => {
-      const fileReader = new FileReader();
-      fileReader.readAsArrayBuffer(file);
 
-      fileReader.onload = (e) => {
-        const bufferArray = e.target.result;
-        const wb = XLSX.read(bufferArray, { type: "buffer" });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json(ws);
-        resolve(data);
-      };
-
-      fileReader.onerror = (error) => {
-        reject(error);
-      };
-    });
-
-    promise.then((d) => {
-      setRows(d);
-    });
-  };
-
-  const updateStatusHandle = async () => {
-    if (
-      typeof rows === "undefined" ||
-      rows.length === 0 ||
-      typeof data === "undefined"
-    )
-      return;
-    if (event !== "viewer.onSelectionChanged") return;
-    const url = `https://europe.tcstatus.tekla.com/statusapi/1.0`;
-
-    const res_status_token = await axios.post(
-      `${url}/auth/token`,
-      {},
-      {
-        headers: {
-          Authorization: `Bearer ${accesstoken}`,
-        },
-      }
-    );
-    const status_token = res_status_token.data;
-
-    api.then(async (tcapi) => {
-      const modelId = data.data[0].modelId;
-      const objectRuntimeIds = [...data.data[0].objectRuntimeIds];
-      //Get projects
-      const res_projects = await axios.get(
-        `https://app21.connect.trimble.com/tc/api/2.0/projects?fullyLoaded=true&minimal=true&sort=-name`,
-        {
-          headers: {
-            Authorization: `Bearer ${accesstoken}`,
-          },
-        }
-      );
-      const project = res_projects.data.filter(
-        (x) => x.name === projectName
-      )[0];
-      //Get action status
-      const res_statuses = await axios.get(
-        `https://europe.tcstatus.tekla.com/statusapi/1.0/projects/${project.id}/statusactions`,
-        {
-          headers: {
-            Authorization: `Bearer ${status_token}`,
-          },
-        }
-      );
-      const statuses = res_statuses.data;
-
-      const guids = await tcapi.viewer.convertToObjectIds(
-        modelId,
-        objectRuntimeIds
-      );
-      let updated_statuses = [];
-      await tcapi.viewer
-        .getObjectProperties(modelId, objectRuntimeIds)
-        .then((result) => {
-          result.forEach((element) => {
-            const index = result.indexOf(element);
-            element.properties.forEach((property) => {
-              if (
-                property.name !== "Tekla Assembly" &&
-                property.name !== "Tekla Baugruppe"
-              )
-                return;
-              property.properties.forEach((item) => {
-                if (
-                  item.name !== "Assembly/Cast unit Mark" &&
-                  item.name !== "Baugruppen-Positionsnummer"
-                )
-                  return;
-                const asm_mark = item.value;
-                const guid_ifc = guids[index];
-                const items = rows.filter((x) => x.Asm_Mark.includes(asm_mark));
-                if (items.length === 0 || typeof guid_ifc === "undefined")
-                  return;
-                const matched_statuses = statuses.filter((x) =>
-                  items[0].Status.includes(x.name)
-                );
-                if (matched_statuses.length === 0) return;
-                console.log({
-                  objectId: guid_ifc,
-                  statusActionId: matched_statuses[0].id,
-                  value: "Completed",
-                  valueDate: new Date().toISOString(),
-                });
-                updated_statuses.push({
-                  objectId: guid_ifc,
-                  statusActionId: matched_statuses[0].id,
-                  value: "Completed",
-                  valueDate: new Date().toISOString(),
-                });
-              });
-            });
-          });
-        });
-
-      const res = await axios.post(
-        `https://europe.tcstatus.tekla.com/statusapi/1.0/projects/${project.id}/statusevents`,
-        updated_statuses,
-        {
-          headers: {
-            Authorization: `Bearer ${status_token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    });
-    message.success("Update Status Completed");
-  };
-
-  const updateStatusHandle1 = async () => {
-    //Get current project
-    api.then((tcapi) => {
-      tcapi.project.getProject().then((result) => {
-        setProjectId(result.id);
-      });
-    });
-    if (
-      typeof rows === "undefined" ||
-      rows.length === 0 ||
-      typeof data === "undefined"
-    )
-      return;
-    const url = `https://europe.tcstatus.tekla.com/statusapi/1.0`;
-    const res_status_token = await axios.post(
-      `${url}/auth/token`,
-      {},
-      {
-        headers: {
-          Authorization: `Bearer ${accesstoken}`,
-        },
-      }
-    );
-    const status_token = res_status_token.data;
-
-    //Get action status
-    const res_statuses = await axios.get(
-      `https://europe.tcstatus.tekla.com/statusapi/1.0/projects/${projectId}/statusactions`,
-      {
-        headers: {
-          Authorization: `Bearer ${status_token}`,
-        },
-      }
-    );
-    const statuses = res_statuses.data;
-    console.log(statuses);
-    let updated_statuses = [];
-    rows.forEach((element) => {
-      const guid = element.GUID.trim();
-      if (typeof guid === "undefined" || guid === "") return;
-      console.log(element.Status);
-      const guid_ifc = Format(guid);
-      const matched_statuses = statuses.filter((x) =>
-        element.Status.includes(x.name)
-      );
-      if (matched_statuses.length === 0) return;
-      updated_statuses.push({
-        objectId: guid_ifc,
-        statusActionId: matched_statuses[0].id,
-        value: "Completed",
-        valueDate: new Date().toISOString(),
-      });
-    });
-    console.log(updated_statuses);
-    await axios
-      .post(
-        `https://europe.tcstatus.tekla.com/statusapi/1.0/projects/${projectId}/statusevents`,
-        updated_statuses,
-        {
-          headers: {
-            Authorization: `Bearer ${status_token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      )
-      .then((result) => {
-        console.log(result);
-        message.success("Status has been updated");
-      })
-      .catch((ex) => {
-        console.log(ex);
-        message.error("Update failed");
-      });
-  };
-  const representingStatus = async (status) => {
-    message.info("Representing in progress..", 5);
-    api.then((tcapi) => {
-      tcapi.project.getProject().then((result) => {
-        setProjectId(result.id);
-      });
-    });
-    if (typeof data === "undefined" || typeof data.data === "undefined") {
+  const allSattus_1 = async () => {
+    setDeliveriedCount(0);
+    setFabricatedCount(0);
+    setFabricatingCount(0);
+    setNotYetStartedCount(0);
+    if (typeof data === "undefined" || typeof data.data === "undefined" || typeof data.data.length === "undefined" || data.data.length === 0) {
       message.error("Please select models to apply representation");
       return;
     }
-    const model_ids = data.data.map((x) => x.modelId);
-    api.then(async (tcapi) => {
-      const objects = await tcapi.viewer.getObjects();
-      objects.forEach(async (model) => {
-        const modelId = model.modelId;
-        if (model_ids.indexOf(modelId) < 0) return;
-        const objects_id = model.objects.map((x) => x.id);
 
-        const external_ids = await tcapi.viewer.convertToObjectIds(
-          modelId,
-          objects_id
-        );
-        console.log(external_ids);
-
-        const original_ids = external_ids.map((x) => x.replace("$", ""));
-
-        const url = `https://europe.tcstatus.tekla.com/statusapi/1.0`;
-        const res_status_token = await axios.post(
-          `${url}/auth/token`,
-          {},
-          {
-            headers: {
-              Authorization: `Bearer ${accesstoken}`,
-            },
-          }
-        );
-        const status_token = res_status_token.data;
-        //Get action status
-        const res_statuses = await axios.get(
-          `${url}/projects/${projectId}/statusactions`,
-          {
-            headers: {
-              Authorization: `Bearer ${status_token}`,
-            },
-          }
-        );
-
-        const statuses = res_statuses.data.map((x) => {
-          if (x.name === "1) Planning") {
-            return {
-              id: x.id,
-              color: "#F1C40F",
-              name: x.name,
-            };
-          } else if (x.name === "2) In Fabrication") {
-            return {
-              id: x.id,
-              color: "#1ABC9C",
-              name: x.name,
-            };
-          } else if (x.name === "3) In Treatment") {
-            return {
-              id: x.id,
-              color: "#2980B9",
-              name: x.name,
-            };
-          } else if (x.name === "3.1) OSWI Completed") {
-            return {
-              id: x.id,
-              color: "#9B59B6",
-              name: x.name,
-            };
-          } else if (x.name === "4) At Dispatch") {
-            return {
-              id: x.id,
-              color: "#E74C3C",
-              name: x.name,
-            };
-          } else if (x.name === "5) Shipped") {
-            return {
-              id: x.id,
-              color: "#B9770E",
-              name: x.name,
-            };
-          } else if (x.name === "Status1") {
-            return {
-              id: x.id,
-              color: "#25cf0e",
-              name: x.name,
-            };
-          } else if (x.name === "Status2") {
-            return {
-              id: x.id,
-              color: "#cf0e18",
-              name: x.name,
-            };
-          }
-        });
-
-        const current_status = statuses.filter(
-          (x) => typeof x !== "undefined" && x.name === status
-        )[0];
-        //Get element statuses
-        const res_status = await axios.get(
-          `${url}/projects/${projectId}/status?statusActionId=${current_status.id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${status_token}`,
-            },
-          }
-        );
-        console.log(res_status.data);
-        const ids = res_status.data.map((x) => x.objectId);
-        console.log(ids);
-        let model_obj_ids = [];
-        ids.forEach((id) => {
-          const index = original_ids.indexOf(id);
-          if (index < 0) return;
-          model_obj_ids.push(index);
-        });
-        console.log(model_obj_ids);
-
-        console.log(current_status);
-        if (model_obj_ids.length === 0) return;
-        tcapi.viewer.setObjectState(
-          {
-            modelObjectIds: [
-              {
-                modelId: modelId,
-                objectRuntimeIds: model_obj_ids,
-              },
-            ],
-          },
-          {
-            color: current_status.color,
-            visible: true,
-          }
-        );
-      });
-    });
-  };
-
-  const allSattus = async () => {
-    if (typeof data === "undefined" || typeof data.data === "undefined") {
-      message.error("Please select models to apply representation");
-      return;
-    }
     const model_ids = data.data.map((x) => x.modelId);
     api.then(async (tcapi) => {
       const object_selector = {
@@ -390,70 +100,205 @@ const UpdateStatus = () => {
         const modelId = model.modelId;
         if (model_ids.indexOf(modelId) < 0) return;
         const objects_id = model.objects.map((x) => x.id);
+        const elements = await tcapi.viewer.getObjectProperties(modelId, objects_id);
+        const model_objects = await elements.map((x) => {
+          const properties = x.properties;
+          let weight = 0;
+          let fab_status = "Not Yet Started";
+          properties.forEach((p) => {
+            if (p.name === "ASSEMBLY") {
+              p.properties.forEach((a) => {
+                if (
+                  a.name === "TS_FAB_Contractor_Comment"
+                ) {
+                  fab_status = a.value;
+                  return true;
+                }
+                else if (a.name === "WEIGHT") {
+                  weight = Number(a.value) / 1000;
+                  return true;
+                }
+              });
+            }
+          });
+          return {
+            modelId: modelId,
+            objId: x.id,
+            status: fab_status,
+            weight: weight
+          }
+        })
+        setModelObjects([...modelObjects, ...model_objects])
+        await FabData.forEach(x => {
+
+          tcapi.viewer.setObjectState(
+            {
+              modelObjectIds: [
+                {
+                  modelId: model_objects[0].id,
+                  objectRuntimeIds: model_objects.filter(e => e.status === x.Status).map(e => e.objId),
+                },
+              ],
+            },
+            {
+              color: x.TC_Color,
+              visible: true,
+            }
+          );
+        })
+      });
+
+
+
+    });
+  };
+  const allSattus = async () => {
+    setDeliveriedCount(0);
+    setFabricatedCount(0);
+    setFabricatingCount(0);
+    setNotYetStartedCount(0);
+    if (typeof data === "undefined" || typeof data.data === "undefined" || typeof data.data.length === "undefined" || data.data.length === 0) {
+      message.error("Please select models to apply representation");
+      return;
+    }
+
+    const model_ids = data.data.map((x) => x.modelId);
+    api.then(async (tcapi) => {
+      const object_selector = {
+        parameter: {
+          class: "IFCELEMENTASSEMBLY",
+        },
+      };
+      const objects = await tcapi.viewer.getObjects(object_selector);
+      let fabricated_ids = [];
+      let fabricating_ids = [];
+      let deliveried_ids = [];
+      objects.forEach(async (model) => {
+        const modelId = model.modelId;
+        if (model_ids.indexOf(modelId) < 0) return;
+        const objects_id = model.objects.map((x) => x.id);
         tcapi.viewer.getObjectProperties(modelId, objects_id).then((data) => {
-          console.log(data);
-          let fabricated_ids = [];
-          let fabricating_ids = [];
-          data.map((x) => {
+          data.forEach((x) => {
             const properties = x.properties;
-            properties.map((p) => {
+            let weight = 0;
+            let asm_pos;
+            let fab_status;
+            properties.forEach((p) => {
               if (p.name === "ASSEMBLY") {
-                p.properties.map((a) => {
-                  if (a.name !== "TS_FAB_Contractor_Comment") return;
-                  fabricated_ids.push(x.id)
+                p.properties.forEach((a) => {
+                  if (
+                    a.name === "TS_FAB_Contractor_Comment" &&
+                    a.value === "In Fabrication"
+                  ) {
+                    fabricating_ids.push(x.id);
+                    fab_status = "In Fabrication"
+                    return true;
+                  } else if (a.name === "TS_FAB_Contractor_Comment" &&
+                    a.value === "Fabricated") {
+                    fabricated_ids.push(x.id);
+                    fab_status = "Fabricated"
+                    return true;
+                  }
+                  else if (a.name === "TS_FAB_Contractor_Comment" &&
+                    a.value === "Deliveried") {
+                    deliveried_ids.push(x.id);
+                    fab_status = "Deliveried"
+                    return true;
+                  }
+                  else if (a.name === "WEIGHT") {
+                    weight = Number(a.value) / 1000;
+                    return true;
+                  }
+                  else if (a.name === "ASSEMBLY_POS") {
+                    asm_pos = a.value
+                    return true;
+                  }
                 });
               }
             });
+            setModelObjects([...modelObjects, {
+              modelId: modelId,
+              objId: x.id,
+              status: fab_status,
+              weight: weight
+            }])
+            if (fab_status === "Deliveried") {
+              setDeliveriedCount((x) => x + weight);
+            } else if (fab_status === "Fabricated") {
+              setFabricatedCount((x) => x + weight);
+            } else if (fab_status === "In Fabrication") {
+              setFabricatingCount((x) => x + weight);
+            } else {
+              setNotYetStartedCount((x) => x + weight);
+            }
           });
-          console.log(fabricated_ids)
-          tcapi.viewer.setObjectState({
-            modelObjectIds: [
-              {
-                modelId: modelId,
-                objectRuntimeIds: fabricated_ids,
-              },
-            ],
-          }, {
-            color: "#25cf0e",
-            visible: true,
-          })
+          tcapi.viewer.setObjectState(
+            {
+              modelObjectIds: [
+                {
+                  modelId: modelId,
+                  objectRuntimeIds: objects_id,
+                },
+              ],
+            },
+            {
+              color: FabData.filter(x => x.Status === "Not Yet Started")[0].TC_Color,
+              visible: true,
+            }
+          );
+          tcapi.viewer.setObjectState(
+            {
+              modelObjectIds: [
+                {
+                  modelId: modelId,
+                  objectRuntimeIds: deliveried_ids,
+                },
+              ],
+            },
+            {
+              color: FabData.filter(x => x.Status === "Deliveried")[0].TC_Color,
+              visible: true,
+            }
+          );
+          tcapi.viewer.setObjectState(
+            {
+              modelObjectIds: [
+                {
+                  modelId: modelId,
+                  objectRuntimeIds: fabricated_ids,
+                },
+              ],
+            },
+            {
+              color: FabData.filter(x => x.Status === "Fabricated")[0].TC_Color,
+              visible: true,
+            }
+          );
+          tcapi.viewer.setObjectState(
+            {
+              modelObjectIds: [
+                {
+                  modelId: modelId,
+                  objectRuntimeIds: fabricating_ids,
+                },
+              ],
+            },
+            {
+              color: FabData.filter(x => x.Status === "In Fabrication")[0].TC_Color,
+              visible: true,
+            }
+          );
         });
       });
     });
   };
 
-  const resetColor = () => {
-    if (typeof data === "undefined" || typeof data.data === "undefined") {
-      message.error("Please select models to apply representation");
-      return;
-    }
-    const model_ids = data.data.map((x) => x.modelId);
-    api.then(async (tcapi) => {
-      const objects = await tcapi.viewer.getObjects();
-      console.log(objects);
-      objects.forEach(async (model) => {
-        const modelId = model.modelId;
-        if (model_ids.indexOf(modelId) < 0) return;
-        console.log(modelId);
-        const objects_id = model.objects.map((x) => x.id);
-        console.log(objects_id);
+  const pieceClick = (event) => {
+    const chart = chartRef.current;
+    const a = getDatasetAtEvent(chart, event)
+    console.log(a)
+  }
 
-        tcapi.viewer.setObjectState(
-          {
-            modelObjectIds: [
-              {
-                modelId: modelId,
-                objectRuntimeIds: objects_id,
-              },
-            ],
-          },
-          {
-            color: "reset",
-          }
-        );
-      });
-    });
-  };
   return (
     <Layout style={{ backgroundColor: "#ffffff" }}>
       <Content style={{ padding: "10px" }}>
@@ -467,11 +312,37 @@ const UpdateStatus = () => {
           }}
         >
           <Button type="primary" onClick={allSattus}>
-            Show All Status
+            Fabrication Status
           </Button>
-          <Button type="primary" onClick={resetColor}>
-            Reset Color
-          </Button>
+        </div>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            flexWrap: "wrap",
+            rowGap: "5px",
+            columnGap: "5px",
+            height: "300px",
+            width: "300px",
+          }}
+        >
+          <Pie
+            width={"50px"}
+            height={"50px"} ref={chartRef}
+            data={{
+              labels: fab_Statues,
+              datasets: [
+                {
+                  label: "Fabrication Status",
+                  data: [notYetStartedCount, deliveriedCount, fabricatedCount, fabricatingCount],
+                  backgroundColor: fab_Colors,
+                  borderColor: fab_Colors,
+                  borderWidth: 1,
+                },
+              ],
+            }}
+            onClick={pieceClick}
+          />
         </div>
       </Content>
     </Layout>
