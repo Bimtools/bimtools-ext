@@ -1,4 +1,5 @@
 import React, { useEffect, useState, MouseEvent, useRef } from "react";
+import axios, { AxiosError, AxiosResponse } from "axios";
 import * as WorkspaceAPI from "trimble-connect-workspace-api";
 import { Layout, Button, message } from "antd";
 import {
@@ -57,6 +58,10 @@ const FabData = [
 ]
 const fab_Statues = FabData.map(x => x.Status)
 const fab_Colors = FabData.map(x => x.Color)
+const clientId = '7f51dff4-fef7-4e68-98d2-6f04d63dcb2b';
+const redirectUri = 'http://127.0.0.1:3000/';
+const scope = 'openid StatusSharingTID4';
+const tcUri = 'https://europe.tcstatus.tekla.com/statusapi/1.0'
 
 const UpdateStatus = () => {
   const [event, setEvent] = useState();
@@ -67,15 +72,53 @@ const UpdateStatus = () => {
   const [notYetStartedCount, setNotYetStartedCount] = useState(0);
   const [modelObjects, setModelObjects] = useState([]);
   const [api, setApi] = useState();
+  const [projId, setProjId] = useState();
+  const [accessToken, setAccessToken] = useState();
+  const [statusToken, setStatusToken] = useState();
 
   const chartRef = useRef();
-
   useEffect(() => {
     const api = WorkspaceAPI.connect(window.parent, (event, data) => {
       setEvent(event);
       setData(data);
     });
     setApi(api);
+    // const urlParams = new URLSearchParams(window.location.search);
+    // const authorizationCode = urlParams.get('code');
+    // if (authorizationCode) {
+    //   const tokenEndpoint = 'https://id.trimble.com/oauth/token';
+    //   const clientSecret = 'nR3_YW3sthyGNYzYTh80FXEH7Rsa';
+    //   const data = new URLSearchParams();
+    //   data.append('grant_type', 'authorization_code');
+    //   data.append('code', authorizationCode);
+    //   data.append('client_id', clientId);
+    //   data.append('client_secret', clientSecret);
+    //   data.append('redirect_uri', redirectUri);
+    //   axios.post(tokenEndpoint, data)
+    //     .then(async response => {
+    //       const accessToken = response.data.access_token;
+    //       console.log(response)
+    //       setAccessToken(accessToken)
+    //       const res_status_token = await axios.post(
+    //         `${tcUri}/auth/token`,
+    //         {},
+    //         {
+    //           headers: {
+    //             Authorization: `Bearer ${accessToken}`,
+    //           },
+    //         }
+    //       );
+    //       const status_token = res_status_token.data;
+    //       api.then(tcapi=>{
+    //         tcapi.project.getProject().then(proj=>{
+    //           setProjId(proj.id)
+    //         })
+    //       })
+    //     })
+    //     .catch(error => {
+    //       console.error(error);
+    //     });
+    // }   
   }, []);
 
   const allSattus_1 = async () => {
@@ -299,6 +342,13 @@ const UpdateStatus = () => {
     console.log(a)
   }
 
+  const updateStatusFromExcel = () => {
+    const authorizationUrl = `https://id.trimble.com/oauth/authorize/?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}`;
+    window.location.href = authorizationUrl;
+    console.log(accessToken);
+    console.log(projId);
+  };
+
   return (
     <Layout style={{ backgroundColor: "#ffffff" }}>
       <Content style={{ padding: "10px" }}>
@@ -313,6 +363,9 @@ const UpdateStatus = () => {
         >
           <Button type="primary" onClick={allSattus}>
             Fabrication Status
+          </Button>
+          <Button type="primary" onClick={updateStatusFromExcel}>
+            Get Token
           </Button>
         </div>
         <div
