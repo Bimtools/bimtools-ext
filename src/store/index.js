@@ -3,7 +3,7 @@ import createSagaMiddleware from '@redux-saga/core';
 import logger from 'redux-logger';
 import rootReducer from "./rootReducer";
 import rootSaga from "./rootSaga";
-import { composeWithDevTools } from 'redux-devtools-extension';
+import { composeWithDevTools } from '@redux-devtools/extension';
 
 const sagaMiddleware= createSagaMiddleware();
 

@@ -1,10 +1,14 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { message, Row, Col, Upload, Input, Divider, Typography, Button, Form } from 'antd';
 import * as WorkspaceAPI from "trimble-connect-workspace-api";
 import * as XLSX from "xlsx";
 import {
     UploadOutlined
 } from "@ant-design/icons";
+import { useDispatch, useSelector } from 'react-redux';
+import { GetFabStatusRequest } from '../store/fabStatus/action';
+import { Format } from '../services/GUIDConversion';
+import { UpdateObjFabStatusRequest } from '../store/objFabStatus/action';
 function LettersToNumber(letters) {
     for (var p = 0, n = 0; p < letters.length; p++) {
         n = letters[p].charCodeAt() - 64 + n * 26;
@@ -14,11 +18,13 @@ function LettersToNumber(letters) {
 const { Dragger } = Upload;
 const { Text, Link } = Typography;
 const UpdateFabStatus = () => {
+    const dispatch = useDispatch();
     const [rows, setRows] = useState([]);
     const [startRowIndex, setStartRow] = useState();
     const [colAsmPos, setColAsmPos] = useState();
     const [colFabQty, setColFabQty] = useState();
     const [colFabStatus, setColFabStatus] = useState();
+    const [projectId, setProjectId] = useState('')
     const dummyRequest = ({ file, onSuccess }) => {
         const promise = new Promise((resolve, reject) => {
             const fileReader = new FileReader();
@@ -60,6 +66,21 @@ const UpdateFabStatus = () => {
             console.log('Dropped files', e.dataTransfer.files);
         },
     };
+    const fabStatuses = useSelector(state => state.fabStatus.payload);
+    const objFabStatuses = useSelector(state => state.objFabStatus.payload);
+    const loading = useSelector(state => state.fabStatus.loading);
+    useEffect(() => {
+        async function fetchStatus() {
+            const tcapi = await WorkspaceAPI.connect(window.parent)
+            const project = await tcapi.project.getProject()
+            setProjectId(project.id)
+            dispatch(GetFabStatusRequest({
+                projectId: project.id
+            }))
+        }
+        fetchStatus()
+
+    }, [])
     return (
         <>
             <Dragger {...props}>
@@ -134,17 +155,59 @@ const UpdateFabStatus = () => {
                         WorkspaceAPI.connect(window.parent, (event, data) => {
                         }).then(async tcapi => {
                             // Get all assemblies
-                            const assemblies = await tcapi.viewer.getObjects({
+                            const models = await tcapi.viewer.getObjects({
                                 parameter: {
                                     class: "IFCELEMENTASSEMBLY",
                                 },
                             })
-                            assemblies.forEach(async x => {
-                                const object_ids = x.objects.map(a=>a.id);
-                                const properties = await tcapi.viewer.getObjectProperties(x.modelId, object_ids)
-                                
-                            })
+                            models.forEach(async x => {
+                                const object_ids = x.objects.map(a => a.id);
+                                const items = await tcapi.viewer.getObjectProperties(x.modelId, object_ids)
+                                let object_statuses = []
+                                items.forEach(item => {
+                                    const properties = item.properties
+                                    properties.every(property => {
+                                        if (property.name === 'ASSEMBLY') {
+                                            const asm_properties = property.properties
+                                            let asm_pos = ''
+                                            let guid = ''
+                                            asm_properties.every(asm_property => {
+                                                if (asm_pos !== '' && guid !== '') return false
+                                                if (asm_property.name === 'ASSEMBLY_POS') {
+                                                    asm_pos = asm_property.value
+                                                } else if (asm_property.name === 'GUID') {
+                                                    guid = asm_property.value
+                                                }
+                                                return true
+                                            })
+                                            //Get corresponding status in excel file
+                                            const matched_rows = rows.filter(row => row[col_index_asm_pos] === asm_pos)
+                                            if (matched_rows.length > 0) {
+                                                const fab_status_in_excel = matched_rows[0][col_index_fab_status]
+                                                const matched_fab_statuses = fabStatuses.filter(x => x.name === fab_status_in_excel)
+                                                if (matched_fab_statuses.length > 0) {
+                                                    const fab_status_id = matched_fab_statuses[0].id
+                                                    object_statuses.push({
+                                                        objectId: guid,
+                                                        statusActionId: fab_status_id,
+                                                        value: 'Completed',
+                                                        valueDate: new Date().toISOString()
+                                                    })
+                                                }
+                                            }
+                                            return false
+                                        }
+                                        return true
+                                    })
 
+                                })
+                                
+                                const payload={
+                                    projectId:projectId,
+                                    objFabStatuses:object_statuses
+                                }
+                                dispatch(UpdateObjFabStatusRequest(payload))
+                            })
                         });
                     }}>Update</Button>
             </div>

@@ -1,18 +1,34 @@
 import React, { useEffect, useState } from 'react'
-import { Input, Divider, Typography, Button, List, message } from 'antd';
+import { Input, Divider, Typography, Button, List, message, Dropdown, Select } from 'antd';
 import { DeleteFilled, EditFilled, FileAddOutlined } from '@ant-design/icons';
 import * as WorkspaceAPI from "trimble-connect-workspace-api";
-import axios, { AxiosError, AxiosResponse } from "axios";
+import { useDispatch, useSelector } from "react-redux";
+import { CreateFabStatusRequest, DeleteFabStatusRequest, GetFabStatusRequest } from '../store/fabStatus/action';
+import { ColorOptions } from '../services/Color';
+
 const { Text } = Typography;
+const { Option } = Select;
 const CreateFabStatus = () => {
+    const dispatch = useDispatch();
     const [option, setOption] = useState(1);
     const [fabStatus, setFabStatus] = useState('');
-    const [fabStatuses, setFabStatuses] = useState([]);
     const [projectId, setProjectId] = useState('')
-    // useEffect(async () => {
-    //     const tcapi = await WorkspaceAPI.connect(window.parent)
-    //     console.log(tcapi)
-    // })
+
+    const fabStatuses = useSelector(state => state.fabStatus.payload);
+    const loading = useSelector(state => state.fabStatus.loading);
+
+    useEffect(() => {
+        async function fetchStatus() {
+            const tcapi = await WorkspaceAPI.connect(window.parent)
+            const project = await tcapi.project.getProject()
+            setProjectId(project.id)
+            dispatch(GetFabStatusRequest({
+                projectId: project.id
+            }))
+        }
+        fetchStatus()
+
+    }, [])
     return (
         <>
             <Divider>Create Fabrication Status</Divider>
@@ -30,32 +46,15 @@ const CreateFabStatus = () => {
                 <Text ellipsis style={{ width: '60px' }}>Status</Text>
                 <Input placeholder="Fabrication Status" onChange={(e) => setFabStatus(e.target.value)} />
                 {option == 1 ? <Button type="primary" icon={<FileAddOutlined />} onClick={() => {
-                    const polysus_fab_status_token = localStorage.getItem('polysus_fab_status_token')
-                    axios.post(`${process.env.REACT_APP_SHARING_API_URI}/projects/${projectId}/statusactions`,
-                        {
+                    const payload = {
+                        projectId: projectId,
+                        fabStatus: {
                             isPublic: true,
                             name: fabStatus,
                             allowedValues: "Completed"
-                        },
-                        {
-                            headers: {
-                                Authorization: `Bearer ${polysus_fab_status_token}`,
-                            },
                         }
-                    ).then(async response => {
-                        console.log(response)
-                        if (response.status === 201) {
-                            message.success(`New fabrication status: ${fabStatus} has been created`)
-                            setFabStatuses([...fabStatuses, {
-                                name: fabStatus,
-                                id: response.data.id
-                            }])
-                        } else {
-                            message.error('Create new status failed')
-                        }
-                    }).catch(error => {
-                        //message.error('Create new status failed')
-                    })
+                    }
+                    dispatch(CreateFabStatusRequest(payload))
                 }} /> : null}
                 {option == 2 ? <Button type="primary" icon={<EditFilled />} /> : null}
             </div>
@@ -63,10 +62,22 @@ const CreateFabStatus = () => {
                 marginLeft: '5px',
                 marginRight: '5px',
             }}
+                dataSource={fabStatuses}
+                loading={loading}
                 renderItem={(item) => (
-                    <List.Item>
-                        <Text ellipsis style={{ width: '60px' }}>{item.name}</Text>
-                        <Button type="primary" danger icon={<DeleteFilled />} />
+                    <List.Item >
+                        <Text ellipsis >{item.name}</Text>
+                        <Select
+                            placeholder="Select color"
+                        >
+                            {ColorOptions.forEach(x => { return <Option/> })}
+                        </Select>
+                        <Button type="primary" danger icon={<DeleteFilled />} onClick={() => {
+                            dispatch(DeleteFabStatusRequest({
+                                projectId: projectId,
+                                id: item.id
+                            }))
+                        }} />
                     </List.Item>
                 )}
             />
