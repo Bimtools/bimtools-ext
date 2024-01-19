@@ -1,7 +1,9 @@
 import axios from "axios";
 import { all, call, put, takeLatest, takeEvery } from "redux-saga/effects";
 import * as actionType from './actionTypes'
+import * as WorkspaceAPI from "trimble-connect-workspace-api";
 import { message } from "antd";
+import { GetObjFabStatusSuccess, UpdateObjFabStatusSuccess } from "./action";
 
 function* updateObjFabStatusSaga(action) {
     try {
@@ -12,8 +14,11 @@ function* updateObjFabStatusSaga(action) {
                 Authorization: `Bearer ${polysus_fab_status_token}`,
             },
         })
+        message.success(`Fabrication status has been updated`)
+        yield put(UpdateObjFabStatusSuccess(response.data))
         console.log(response)
     } catch (exception) {
+        message.error(`Oops! Something went wrong. Please try again`)
         console.log(exception)
     }
 }
@@ -26,15 +31,57 @@ function* getObjFabStatusSaga(action) {
                 Authorization: `Bearer ${polysus_fab_status_token}`,
             },
         })
-        const data= response.data
-        yield call(presentation,data)
+        const data = response.data.map(x=>{return {
+            statusActionId:action.payload.statusActionId,
+            guid:x.objectId.split('-@-')[0],
+            modelId:x.objectId.split('-@-')[1]
+        }})
+        if(data.length ===0) return
+        yield put(GetObjFabStatusSuccess(data))
     } catch (exception) {
         console.log(exception)
     }
 }
-async function presentation(data){
-    if(data.length ===0) return
-    
+async function presentation(data) {
+    if (data.length === 0) return
+    WorkspaceAPI.connect(window.parent, (event, data) => {
+    }).then(async tcapi => {
+        // Get all assemblies
+        const models = await tcapi.viewer.getObjects({
+            parameter: {
+                class: "IFCELEMENTASSEMBLY",
+            },
+        })
+        models.forEach(async x => {
+            const object_ids = x.objects.map(a => a.id);
+            const items = await tcapi.viewer.getObjectProperties(x.modelId, object_ids)
+            let object_statuses = []
+            items.forEach(item => {
+                const properties = item.properties
+                properties.every(property => {
+                    if (property.name === 'ASSEMBLY') {
+                        const asm_properties = property.properties
+                        let guid = ''
+                        const object_id = item.id
+                        asm_properties.every(asm_property => {
+                            if (guid !== '') return false
+                            if (asm_property.name === 'GUID') {
+                                guid = asm_property.value
+                            }
+                            return true
+                        })
+                        //Get matched status if any
+                        const matched_statuses = data.filter(row => row.objectId===guid)
+                        console.log(matched_statuses)
+                        return false
+                    }
+                    return true
+                })
+            })
+            if (object_statuses.length === 0) return
+        })
+    });
+
 }
 
 function* objFabStatusSaga() {

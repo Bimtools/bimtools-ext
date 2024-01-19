@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Button, Layout, Menu,} from 'antd';
+import { Button, Layout, Menu, } from 'antd';
 import {
     CloudUploadOutlined,
     PieChartFilled,
@@ -9,9 +9,28 @@ import {
 import UpdateFabStatus from './UpdateFabStatus';
 import FabStatusReport from './FabStatusReport';
 import CreateFabStatus from './CreateFabStatus';
+import * as WorkspaceAPI from "trimble-connect-workspace-api";
+import { useDispatch, useSelector } from 'react-redux';
+import { GetFabStatusRequest } from '../store/fabStatus/action';
+import { GetObjFabStatusRequest } from '../store/objFabStatus/action';
 
 const FabStatus = () => {
-    const [option, setOption] = useState(1)
+    const [option, setOption] = useState(4)
+    const [projectId, setProjectId] = useState('')
+    const fabStatuses = useSelector(state => state.fabStatus.payload);
+    const loading = useSelector(state => state.fabStatus.loading);
+    const dispatch = useDispatch();
+    useEffect(() => {
+        async function fetchStatus() {
+            const tcapi = await WorkspaceAPI.connect(window.parent)
+            const project = await tcapi.project.getProject()
+            setProjectId(project.id)
+            dispatch(GetFabStatusRequest({
+                projectId: project.id
+            }))
+        }
+        fetchStatus()
+    }, [])
     return (
         <Layout>
             <div
@@ -64,23 +83,15 @@ const FabStatus = () => {
                                         key: 1,
                                         icon: <PieChartFilled />,
                                         onClick: (e) => {
-                                            // console.log(fabStatuses)
-                                            // fabStatuses.every(x => {
-                                            //     const payload = {
-                                            //         projectId: projectId,
-                                            //         statusActionId: x.id,
-                                            //         name: x.name,
-                                            //         color: {
-                                            //             a: 255,
-                                            //             b: 0,
-                                            //             g: 191,
-                                            //             r: 255
-                                            //         }
-                                            //     }
-                                            //     dispatch(GetObjFabStatusRequest(payload))
-                                            //     return true
-                                            // })
-                                            // setOption(e.key)
+                                            fabStatuses.every(x => {
+                                                const payload = {
+                                                    projectId: projectId,
+                                                    statusActionId: x.id,
+                                                }
+                                                dispatch(GetObjFabStatusRequest(payload))
+                                                return true
+                                            })
+                                            setOption(e.key)
                                         }
                                     },
                                     {
@@ -111,6 +122,9 @@ const FabStatus = () => {
                 }
                 {
                     option == 3 ? <CreateFabStatus /> : null
+                }
+                {
+                    option==4?<div></div>:null
                 }
             </Layout>
         </Layout >

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { message, Row, Col, Upload, Input, Divider, Typography, Button, Form } from 'antd';
+import { message, Row, Col, Upload, Input, Divider, Typography, Button, Form, Spin } from 'antd';
 import * as WorkspaceAPI from "trimble-connect-workspace-api";
 import * as XLSX from "xlsx";
 import {
@@ -67,20 +67,16 @@ const UpdateFabStatus = () => {
         },
     };
     const fabStatuses = useSelector(state => state.fabStatus.payload);
-    const objFabStatuses = useSelector(state => state.objFabStatus.payload);
-    const loading = useSelector(state => state.fabStatus.loading);
+    const loading = useSelector(state => state.objFabStatus.pending);
     useEffect(() => {
-        async function fetchStatus() {
+        console.log(loading)
+        async function getProjectId() {
             const tcapi = await WorkspaceAPI.connect(window.parent)
             const project = await tcapi.project.getProject()
             setProjectId(project.id)
-            dispatch(GetFabStatusRequest({
-                projectId: project.id
-            }))
         }
-        fetchStatus()
-
-    }, [])
+        getProjectId()
+    }, [loading])
     return (
         <>
             <Dragger {...props}>
@@ -162,6 +158,7 @@ const UpdateFabStatus = () => {
                             })
                             models.forEach(async x => {
                                 const object_ids = x.objects.map(a => a.id);
+                                console.log(object_ids)
                                 const items = await tcapi.viewer.getObjectProperties(x.modelId, object_ids)
                                 let object_statuses = []
                                 items.forEach(item => {
@@ -184,11 +181,11 @@ const UpdateFabStatus = () => {
                                             const matched_rows = rows.filter(row => row[col_index_asm_pos] === asm_pos)
                                             if (matched_rows.length > 0) {
                                                 const fab_status_in_excel = matched_rows[0][col_index_fab_status]
-                                                const matched_fab_statuses = fabStatuses.filter(x => x.name === fab_status_in_excel)
+                                                const matched_fab_statuses = fabStatuses.filter(x => x.name.startsWith(fab_status_in_excel))
                                                 if (matched_fab_statuses.length > 0) {
                                                     const fab_status_id = matched_fab_statuses[0].id
                                                     object_statuses.push({
-                                                        objectId: guid,
+                                                        objectId: guid + '-@-' + x.modelId,
                                                         statusActionId: fab_status_id,
                                                         value: 'Completed',
                                                         valueDate: new Date().toISOString()
@@ -199,17 +196,18 @@ const UpdateFabStatus = () => {
                                         }
                                         return true
                                     })
-
                                 })
-                                
-                                const payload={
-                                    projectId:projectId,
-                                    objFabStatuses:object_statuses
+                                if (object_statuses.length === 0) return
+                                console.log(object_statuses)
+                                const payload = {
+                                    projectId: projectId,
+                                    objFabStatuses: object_statuses
                                 }
                                 dispatch(UpdateObjFabStatusRequest(payload))
                             })
                         });
                     }}>Update</Button>
+                {loading?(<Spin size="large" />):null}
             </div>
         </>
     )
