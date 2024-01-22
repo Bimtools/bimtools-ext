@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { message, Row, Col, Upload, Input, Divider, Typography, Button, Form, Spin } from 'antd';
+import { message, Row, Col, Upload, Input, Divider, Typography, Button, Form, Spin, DatePicker } from 'antd';
 import * as WorkspaceAPI from "trimble-connect-workspace-api";
 import * as XLSX from "xlsx";
 import {
@@ -7,8 +7,8 @@ import {
 } from "@ant-design/icons";
 import { useDispatch, useSelector } from 'react-redux';
 import { GetFabStatusRequest } from '../store/fabStatus/action';
-import { Format } from '../services/GUIDConversion';
 import { UpdateObjFabStatusRequest } from '../store/objFabStatus/action';
+import moment from 'moment';
 function LettersToNumber(letters) {
     for (var p = 0, n = 0; p < letters.length; p++) {
         n = letters[p].charCodeAt() - 64 + n * 26;
@@ -25,6 +25,7 @@ const UpdateFabStatus = () => {
     const [colFabQty, setColFabQty] = useState();
     const [colFabStatus, setColFabStatus] = useState();
     const [projectId, setProjectId] = useState('')
+    const [reportDate, setReportDate] = useState()
     const dummyRequest = ({ file, onSuccess }) => {
         const promise = new Promise((resolve, reject) => {
             const fileReader = new FileReader();
@@ -93,44 +94,47 @@ const UpdateFabStatus = () => {
             <Row style={{ margin: '2px' }}>
                 <Col span={8}><Text ellipsis>First Row Index</Text></Col>
                 <Col span={16}>
-                    <Form>
-                        <Form.Item name="firstRowIndex" rules={[{ required: true, message: "Please input first row index!" }]}>
-                            <Input placeholder="First Row Index" onChange={(e) => setStartRow(e.target.value)} />
-                        </Form.Item>
-                    </Form></Col>
+                    <Input placeholder="First Row Index" onChange={(e) => setStartRow(e.target.value)} />
+                </Col>
             </Row>
             <Row style={{ margin: '2px' }}>
                 <Col span={8}><Text ellipsis>Assembly Position</Text></Col>
                 <Col span={16}>
-                    <Form>
-                        <Form.Item name="asmPos" rules={[{ required: true, message: "Please input assembly position column name!" }]}>
-                            <Input placeholder="Assembly Position" required onChange={(e) => setColAsmPos(e.target.value)} />
-                        </Form.Item>
-                    </Form>
+                    <Input placeholder="Assembly Position" required onChange={(e) => setColAsmPos(e.target.value)} />
                 </Col>
             </Row>
             <Row style={{ margin: '2px' }}>
                 <Col span={8}><Text ellipsis>Fabrication Quantity</Text></Col>
                 <Col span={16}>
-                    <Form>
-                        <Form.Item name="fabQty" rules={[{ required: true, message: "Please input fabrication quantity column!" }]}>
-                            <Input placeholder="Fabrication Quantity" required onChange={(e) => setColFabQty(e.target.value)} />
-                        </Form.Item>
-                    </Form>
-
+                    <Input placeholder="Fabrication Quantity" required onChange={(e) => setColFabQty(e.target.value)} />
                 </Col>
             </Row>
             <Row style={{ margin: '2px' }}>
                 <Col span={8}><Text ellipsis>Fabrication Status</Text></Col>
                 <Col span={16}>
-                    <Form>
-                        <Form.Item name="fabStatus" rules={[{ required: true, message: "Please input fabrication status column!" }]}>
-                            <Input placeholder="Fabrication Status" required onChange={(e) => setColFabStatus(e.target.value)} />
-                        </Form.Item>
-                    </Form>
-
+                    <Input placeholder="Fabrication Status" required onChange={(e) => setColFabStatus(e.target.value)} />
                 </Col>
             </Row>
+            <Row style={{ margin: '2px' }}>
+                <Col span={8}><Text ellipsis>Report Date</Text></Col>
+                <Col span={16}>
+                    <div
+                        style={{
+                            display: "flex",
+                            alignItems: 'center',
+                            flexDirection: "row",
+                            justifyContent: 'space-between',
+                            marginTop: '5px',
+                            marginRight: '5px',
+                            columnGap: '2px'
+                        }}>
+                        <DatePicker format={'YYYY-MM-DD'} onChange={(date, dateString) => {
+                            setReportDate(dateString)
+                        }} />
+                    </div>
+                </Col>
+            </Row>
+
             <div
                 containeer
                 style={{
@@ -158,10 +162,10 @@ const UpdateFabStatus = () => {
                             })
                             models.forEach(async x => {
                                 const object_ids = x.objects.map(a => a.id);
-                                console.log(object_ids)
                                 const items = await tcapi.viewer.getObjectProperties(x.modelId, object_ids)
                                 let object_statuses = []
-                                items.forEach(item => {
+                                let object_properties = []
+                                items.forEach((item, index) => {
                                     const properties = item.properties
                                     properties.every(property => {
                                         if (property.name === 'ASSEMBLY') {
@@ -177,25 +181,38 @@ const UpdateFabStatus = () => {
                                                 }
                                                 return true
                                             })
-                                            //Get corresponding status in excel file
-                                            const matched_rows = rows.filter(row => row[col_index_asm_pos] === asm_pos)
-                                            if (matched_rows.length > 0) {
-                                                const fab_status_in_excel = matched_rows[0][col_index_fab_status]
-                                                const matched_fab_statuses = fabStatuses.filter(x => x.name.startsWith(fab_status_in_excel))
-                                                if (matched_fab_statuses.length > 0) {
-                                                    const fab_status_id = matched_fab_statuses[0].id
-                                                    object_statuses.push({
-                                                        objectId: guid + '-@-' + x.modelId,
-                                                        statusActionId: fab_status_id,
-                                                        value: 'Completed',
-                                                        valueDate: new Date().toISOString()
-                                                    })
-                                                }
-                                            }
+                                            object_properties.push({
+                                                asmPos: asm_pos,
+                                                guid: guid,
+                                            })
                                             return false
                                         }
                                         return true
                                     })
+                                })
+                                //Group by asmPos
+                                const group_by_asm_pos = Object.groupBy(object_properties, ({ asmPos }) => asmPos)
+                                Object.entries(group_by_asm_pos).forEach(function ([key, value]) {
+                                    //Get corresponding status in excel file
+                                    const matched_rows = rows.filter(row => key.startsWith(row[col_index_asm_pos]))
+                                    if (matched_rows.length > 0) {
+                                        const fab_status_in_excel = matched_rows[0][col_index_fab_status]
+                                        const fab_qty_in_excel = matched_rows[0][col_index_fab_qty]
+                                        const matched_fab_statuses = fabStatuses.filter(x => x.name.startsWith(fab_status_in_excel))
+                                        let total_num = value.length
+                                        if (typeof fab_qty_in_excel !== 'undefined') total_num = Number(fab_qty_in_excel)
+                                        if (matched_fab_statuses.length > 0) {
+                                            const fab_status_id = matched_fab_statuses[0].id
+                                            for (let i = 0; i < total_num; i++) {
+                                                object_statuses.push({
+                                                    objectId: value[i].guid + '-@-' + x.modelId,
+                                                    statusActionId: fab_status_id,
+                                                    value: 'Completed',
+                                                    valueDate: reportDate
+                                                })
+                                            }
+                                        }
+                                    }
                                 })
                                 if (object_statuses.length === 0) return
                                 console.log(object_statuses)
@@ -207,7 +224,7 @@ const UpdateFabStatus = () => {
                             })
                         });
                     }}>Update</Button>
-                {loading?(<Spin size="large" />):null}
+                {loading ? (<Spin size="large" />) : null}
             </div>
         </>
     )

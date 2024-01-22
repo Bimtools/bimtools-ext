@@ -15,8 +15,17 @@ function* updateObjFabStatusSaga(action) {
             },
         })
         message.success(`Fabrication status has been updated`)
-        yield put(UpdateObjFabStatusSuccess(response.data))
-        console.log(response)
+        const data = response.data.map(x => {
+            return {
+                statusActionId: action.payload.statusActionId,
+                guid: x.objectId.split('-@-')[0],
+                modelId: x.objectId.split('-@-')[1],
+                reportDate: x.valueDate
+            }
+        })
+        console.log(data)
+        yield put(UpdateObjFabStatusSuccess(data))
+       
     } catch (exception) {
         message.error(`Oops! Something went wrong. Please try again`)
         console.log(exception)
@@ -25,18 +34,22 @@ function* updateObjFabStatusSaga(action) {
 function* getObjFabStatusSaga(action) {
     try {
         const polysus_fab_status_token = localStorage.getItem('polysus_fab_status_token')
-        const url = `${process.env.REACT_APP_SHARING_API_URI}/projects/${action.payload.projectId}/status?statusActionId=${action.payload.statusActionId}`
+        const url = `${process.env.REACT_APP_SHARING_API_URI}/projects/${action.payload.projectId}/statusevents?statusActionId=${action.payload.statusActionId}`
         const response = yield call(axios.get, url, {
             headers: {
                 Authorization: `Bearer ${polysus_fab_status_token}`,
             },
         })
-        const data = response.data.map(x=>{return {
-            statusActionId:action.payload.statusActionId,
-            guid:x.objectId.split('-@-')[0],
-            modelId:x.objectId.split('-@-')[1]
-        }})
-        if(data.length ===0) return
+        const data = response.data.map(x => {
+            return {
+                statusActionId: action.payload.statusActionId,
+                guid: x.objectId.split('-@-')[0],
+                modelId: x.objectId.split('-@-')[1],
+                reportDate: x.valueDate
+            }
+        })
+        if (data.length === 0) return
+        console.log(data)
         yield put(GetObjFabStatusSuccess(data))
     } catch (exception) {
         console.log(exception)
@@ -71,7 +84,7 @@ async function presentation(data) {
                             return true
                         })
                         //Get matched status if any
-                        const matched_statuses = data.filter(row => row.objectId===guid)
+                        const matched_statuses = data.filter(row => row.objectId === guid)
                         console.log(matched_statuses)
                         return false
                     }

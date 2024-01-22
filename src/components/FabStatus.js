@@ -25,9 +25,9 @@ const FabStatus = () => {
             const tcapi = await WorkspaceAPI.connect(window.parent)
             const project = await tcapi.project.getProject()
             setProjectId(project.id)
-            dispatch(GetFabStatusRequest({
-                projectId: project.id
-            }))
+            // dispatch(GetFabStatusRequest({
+            //     projectId: project.id
+            // }))
         }
         fetchStatus()
     }, [])

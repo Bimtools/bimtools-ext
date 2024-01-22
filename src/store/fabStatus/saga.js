@@ -10,7 +10,7 @@ function* getFabStatusSaga(action) {
     console.log(url)
     const response = yield call(axios.get, url, {
         headers: {
-            Authorization: `Bearer ${polysus_fab_status_token}`,
+            Authorization: `Bearer ${action.payload.statusToken}`,
         },
     })
     const statuses = response.data.map(x => ({
