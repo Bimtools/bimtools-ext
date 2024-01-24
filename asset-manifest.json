@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/bimtools-ext/static/css/main.073c9b0a.css",
-    "main.js": "/bimtools-ext/static/js/main.f66550ea.js",
+    "main.js": "/bimtools-ext/static/js/main.c3b3d34f.js",
     "static/js/787.775db5cb.chunk.js": "/bimtools-ext/static/js/787.775db5cb.chunk.js",
     "index.html": "/bimtools-ext/index.html",
     "main.073c9b0a.css.map": "/bimtools-ext/static/css/main.073c9b0a.css.map",
-    "main.f66550ea.js.map": "/bimtools-ext/static/js/main.f66550ea.js.map",
+    "main.c3b3d34f.js.map": "/bimtools-ext/static/js/main.c3b3d34f.js.map",
     "787.775db5cb.chunk.js.map": "/bimtools-ext/static/js/787.775db5cb.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.073c9b0a.css",
-    "static/js/main.f66550ea.js"
+    "static/js/main.c3b3d34f.js"
   ]
 }
