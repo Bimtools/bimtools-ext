@@ -36,6 +36,16 @@ const reducers = (state = initialState, action) => {
                     ...state.payload,
                     ...action.payload]
             }
+        case type.REPRESENT_OBJ_FAB_STATUS_REQUEST:
+            return {
+                ...state,
+                pending: true
+            }
+        case type.REPRESENT_OBJ_FAB_STATUS_SUCCESS:
+            return {
+                ...state,
+                pending: false,
+            }
         case type.GET_OBJ_FAB_STATUS_FAILURE:
             return {
                 ...state,

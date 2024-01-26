@@ -26,3 +26,19 @@ export function GetObjFabStatusSuccess(payload){
         payload:payload
     }
 }
+export function GetObjFabStatusFailure(){
+    return{
+        type:actionType.GET_OBJ_FAB_STATUS_FAILURE,
+    }
+}
+export function RepresentObjFabStatusRequest(){
+    return{
+        type:actionType.REPRESENT_OBJ_FAB_STATUS_REQUEST,
+    }
+}
+
+export function RepresentObjFabStatusSuccess(){
+    return{
+        type:actionType.REPRESENT_OBJ_FAB_STATUS_SUCCESS,
+    }
+}

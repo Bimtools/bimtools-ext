@@ -20,7 +20,6 @@ const { Text, Link } = Typography;
 const UpdateFabStatus = () => {
     const dispatch = useDispatch();
     const [rows, setRows] = useState([]);
-    const [startRowIndex, setStartRow] = useState();
     const [colAsmPos, setColAsmPos] = useState();
     const [colFabQty, setColFabQty] = useState();
     const [colFabStatus, setColFabStatus] = useState();
@@ -92,12 +91,6 @@ const UpdateFabStatus = () => {
                 <Col span={16}><Text ellipsis strong>Column Name</Text></Col>
             </Row>
             <Row style={{ margin: '2px' }}>
-                <Col span={8}><Text ellipsis>First Row Index</Text></Col>
-                <Col span={16}>
-                    <Input placeholder="First Row Index" onChange={(e) => setStartRow(e.target.value)} />
-                </Col>
-            </Row>
-            <Row style={{ margin: '2px' }}>
                 <Col span={8}><Text ellipsis>Assembly Position</Text></Col>
                 <Col span={16}>
                     <Input placeholder="Assembly Position" required onChange={(e) => setColAsmPos(e.target.value)} />
@@ -146,7 +139,7 @@ const UpdateFabStatus = () => {
                     margin: '2px'
                 }}
             >
-                <Button type="primary" disabled={typeof (startRowIndex) === 'undefined' || Number(startRowIndex) < 1 || colAsmPos === ''
+                <Button type="primary" disabled={typeof (startRowIndex) === 'undefined' ||  colAsmPos === ''
                     || colFabQty === '' || colFabStatus === ''}
                     onClick={async () => {
                         const col_index_asm_pos = LettersToNumber(colAsmPos)
@@ -160,6 +153,7 @@ const UpdateFabStatus = () => {
                                     class: "IFCELEMENTASSEMBLY",
                                 },
                             })
+                            console.log(models)
                             models.forEach(async x => {
                                 const object_ids = x.objects.map(a => a.id);
                                 const items = await tcapi.viewer.getObjectProperties(x.modelId, object_ids)
@@ -192,9 +186,11 @@ const UpdateFabStatus = () => {
                                 })
                                 //Group by asmPos
                                 const group_by_asm_pos = Object.groupBy(object_properties, ({ asmPos }) => asmPos)
+                                console.log(group_by_asm_pos)
                                 Object.entries(group_by_asm_pos).forEach(function ([key, value]) {
                                     //Get corresponding status in excel file
                                     const matched_rows = rows.filter(row => key.startsWith(row[col_index_asm_pos]))
+                                    console.log(matched_rows)
                                     if (matched_rows.length > 0) {
                                         const fab_status_in_excel = matched_rows[0][col_index_fab_status]
                                         const fab_qty_in_excel = matched_rows[0][col_index_fab_qty]
@@ -214,7 +210,11 @@ const UpdateFabStatus = () => {
                                         }
                                     }
                                 })
-                                if (object_statuses.length === 0) return
+                                console.log(object_statuses)
+                                if (object_statuses.length === 0){
+                                    message.success(`Fabrication status has been updated`)
+                                    return
+                                }
                                 console.log(object_statuses)
                                 const payload = {
                                     projectId: projectId,

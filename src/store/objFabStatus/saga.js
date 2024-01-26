@@ -1,19 +1,13 @@
 import axios from "axios";
 import { all, call, put, takeLatest, takeEvery } from "redux-saga/effects";
-import * as actionType from './actionTypes'
 import * as WorkspaceAPI from "trimble-connect-workspace-api";
 import { message } from "antd";
-import { GetObjFabStatusSuccess, UpdateObjFabStatusSuccess } from "./action";
+import { GetObjFabStatusFailure, GetObjFabStatusSuccess, UpdateObjFabStatusSuccess } from "./action";
 
 function* updateObjFabStatusSaga(action) {
     try {
-        const polysus_fab_status_token = localStorage.getItem('polysus_fab_status_token')
-        const url = `${process.env.REACT_APP_SHARING_API_URI}/projects/${action.payload.projectId}/statusevents`
-        const response = yield call(axios.post, url, action.payload.objFabStatuses, {
-            headers: {
-                Authorization: `Bearer ${polysus_fab_status_token}`,
-            },
-        })
+        const url = `/projects/${action.payload.projectId}/statusevents`
+        const response = yield call(axios.post, url, action.payload.objFabStatuses)
         message.success(`Fabrication status has been updated`)
         const data = response.data.map(x => {
             return {
@@ -23,7 +17,6 @@ function* updateObjFabStatusSaga(action) {
                 reportDate: x.valueDate
             }
         })
-        console.log(data)
         yield put(UpdateObjFabStatusSuccess(data))
        
     } catch (exception) {
@@ -33,13 +26,8 @@ function* updateObjFabStatusSaga(action) {
 }
 function* getObjFabStatusSaga(action) {
     try {
-        const polysus_fab_status_token = localStorage.getItem('polysus_fab_status_token')
         const url = `${process.env.REACT_APP_SHARING_API_URI}/projects/${action.payload.projectId}/statusevents?statusActionId=${action.payload.statusActionId}`
-        const response = yield call(axios.get, url, {
-            headers: {
-                Authorization: `Bearer ${polysus_fab_status_token}`,
-            },
-        })
+        const response = yield call(axios.get, url)
         const data = response.data.map(x => {
             return {
                 statusActionId: action.payload.statusActionId,
@@ -53,6 +41,8 @@ function* getObjFabStatusSaga(action) {
         yield put(GetObjFabStatusSuccess(data))
     } catch (exception) {
         console.log(exception)
+        yield put(GetObjFabStatusFailure())
+       
     }
 }
 async function presentation(data) {
