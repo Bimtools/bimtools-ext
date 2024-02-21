@@ -7,18 +7,20 @@ import { GetObjFabStatusFailure, GetObjFabStatusSuccess, UpdateObjFabStatusSucce
 function* updateObjFabStatusSaga(action) {
     try {
         const url = `/projects/${action.payload.projectId}/statusevents`
-        const response = yield call(axios.post, url, action.payload.objFabStatuses)
-        message.success(`Fabrication status has been updated`)
+        const response = yield call(axios.post, url, action.payload.objFabStatuses)   
+        console.log(response.data)   
         const data = response.data.map(x => {
             return {
-                statusActionId: action.payload.statusActionId,
-                guid: x.objectId.split('-@-')[0],
-                modelId: x.objectId.split('-@-')[1],
+                statusActionId: x.statusActionId,
+                asm_pos: x.objectId.split('-@-')[0],
+                fab_qty: Number(x.objectId.split('-@-')[1]),
+                model_total: Number(x.objectId.split('-@-')[2]),
+                asm_weight: Number(x.objectId.split('-@-')[3]),
                 reportDate: x.valueDate
             }
         })
         yield put(UpdateObjFabStatusSuccess(data))
-       
+        message.success(`Fabrication status has been updated`)
     } catch (exception) {
         message.error(`Oops! Something went wrong. Please try again`)
         console.log(exception)
@@ -31,8 +33,9 @@ function* getObjFabStatusSaga(action) {
         const data = response.data.map(x => {
             return {
                 statusActionId: action.payload.statusActionId,
-                guid: x.objectId.split('-@-')[0],
-                modelId: x.objectId.split('-@-')[1],
+                fab_qty: Number(x.objectId.split('-@-')[1]),
+                model_total: Number(x.objectId.split('-@-')[2]),
+                asm_weight: Number(x.objectId.split('-@-')[3]),
                 reportDate: x.valueDate
             }
         })
@@ -44,47 +47,6 @@ function* getObjFabStatusSaga(action) {
         yield put(GetObjFabStatusFailure())
        
     }
-}
-async function presentation(data) {
-    if (data.length === 0) return
-    WorkspaceAPI.connect(window.parent, (event, data) => {
-    }).then(async tcapi => {
-        // Get all assemblies
-        const models = await tcapi.viewer.getObjects({
-            parameter: {
-                class: "IFCELEMENTASSEMBLY",
-            },
-        })
-        models.forEach(async x => {
-            const object_ids = x.objects.map(a => a.id);
-            const items = await tcapi.viewer.getObjectProperties(x.modelId, object_ids)
-            let object_statuses = []
-            items.forEach(item => {
-                const properties = item.properties
-                properties.every(property => {
-                    if (property.name === 'ASSEMBLY') {
-                        const asm_properties = property.properties
-                        let guid = ''
-                        const object_id = item.id
-                        asm_properties.every(asm_property => {
-                            if (guid !== '') return false
-                            if (asm_property.name === 'GUID') {
-                                guid = asm_property.value
-                            }
-                            return true
-                        })
-                        //Get matched status if any
-                        const matched_statuses = data.filter(row => row.objectId === guid)
-                        console.log(matched_statuses)
-                        return false
-                    }
-                    return true
-                })
-            })
-            if (object_statuses.length === 0) return
-        })
-    });
-
 }
 
 function* objFabStatusSaga() {

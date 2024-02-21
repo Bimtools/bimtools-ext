@@ -1,6 +1,7 @@
 import * as type from './actionTypes';
 const initialState = {
     payload: [],
+    objects: [],
     pending: false,
     error: null,
 }
@@ -44,6 +45,8 @@ const reducers = (state = initialState, action) => {
         case type.REPRESENT_OBJ_FAB_STATUS_SUCCESS:
             return {
                 ...state,
+                objects: [
+                    ...action.payload],
                 pending: false,
             }
         case type.GET_OBJ_FAB_STATUS_FAILURE:

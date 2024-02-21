@@ -6,9 +6,7 @@ import {
     UploadOutlined
 } from "@ant-design/icons";
 import { useDispatch, useSelector } from 'react-redux';
-import { GetFabStatusRequest } from '../store/fabStatus/action';
 import { UpdateObjFabStatusRequest } from '../store/objFabStatus/action';
-import moment from 'moment';
 function LettersToNumber(letters) {
     for (var p = 0, n = 0; p < letters.length; p++) {
         n = letters[p].charCodeAt() - 64 + n * 26;
@@ -22,6 +20,8 @@ const UpdateFabStatus = () => {
     const [rows, setRows] = useState([]);
     const [colAsmPos, setColAsmPos] = useState();
     const [colFabQty, setColFabQty] = useState();
+    const [colWeight, setColWeight] = useState();
+    const [colModelTotal, setColModelTotal] = useState();
     const [colFabStatus, setColFabStatus] = useState();
     const [projectId, setProjectId] = useState('')
     const [reportDate, setReportDate] = useState()
@@ -97,6 +97,18 @@ const UpdateFabStatus = () => {
                 </Col>
             </Row>
             <Row style={{ margin: '2px' }}>
+                <Col span={8}><Text ellipsis>Assembly Weight</Text></Col>
+                <Col span={16}>
+                    <Input placeholder="Assembly Weight" required onChange={(e) => setColWeight(e.target.value)} />
+                </Col>
+            </Row>
+            <Row style={{ margin: '2px' }}>
+                <Col span={8}><Text ellipsis>Model Total</Text></Col>
+                <Col span={16}>
+                    <Input placeholder="Model Total" required onChange={(e) => setColModelTotal(e.target.value)} />
+                </Col>
+            </Row>
+            <Row style={{ margin: '2px' }}>
                 <Col span={8}><Text ellipsis>Fabrication Quantity</Text></Col>
                 <Col span={16}>
                     <Input placeholder="Fabrication Quantity" required onChange={(e) => setColFabQty(e.target.value)} />
@@ -139,90 +151,118 @@ const UpdateFabStatus = () => {
                     margin: '2px'
                 }}
             >
-                <Button type="primary" disabled={typeof (startRowIndex) === 'undefined' ||  colAsmPos === ''
+                <Button type="primary" disabled={colAsmPos === ''
                     || colFabQty === '' || colFabStatus === ''}
                     onClick={async () => {
                         const col_index_asm_pos = LettersToNumber(colAsmPos)
                         const col_index_fab_qty = LettersToNumber(colFabQty)
                         const col_index_fab_status = LettersToNumber(colFabStatus)
-                        WorkspaceAPI.connect(window.parent, (event, data) => {
-                        }).then(async tcapi => {
-                            // Get all assemblies
-                            const models = await tcapi.viewer.getObjects({
-                                parameter: {
-                                    class: "IFCELEMENTASSEMBLY",
-                                },
+                        const col_index_asm_weight = LettersToNumber(colWeight)
+                        const col_index_model_total = LettersToNumber(colModelTotal)
+                        let object_statuses = []
+                        rows.every(x=>{
+                            const asm_model_total = Number(x[col_index_model_total])
+                            if(typeof asm_model_total ==='undefined' || asm_model_total <=0) return true
+                            const asm_weight = Number(x[col_index_asm_weight])
+                            if(typeof asm_weight ==='undefined' || asm_weight <=0) return true
+                            const fab_status_in_excel = x[col_index_fab_status]
+                            const matched_fab_statuses = fabStatuses.filter(x => x.name.startsWith(fab_status_in_excel))
+                            if(matched_fab_statuses.length === 0) return true
+                            const asm_pos_in_excel = x[col_index_asm_pos]
+                            if(typeof asm_pos_in_excel === 'undefined' || asm_pos_in_excel==='') return true
+                            let fab_qty_in_excel = x[col_index_fab_qty]
+                            if(typeof fab_qty_in_excel === 'undefined' || fab_qty_in_excel==='') return true
+                            const fab_status_id = matched_fab_statuses[0].id
+                            object_statuses.push({
+                                objectId: asm_pos_in_excel+'-@-'+fab_qty_in_excel+'-@-'+asm_model_total+'-@-'+asm_weight,
+                                statusActionId: fab_status_id,
+                                value: 'Completed',
+                                valueDate: reportDate
                             })
-                            console.log(models)
-                            models.forEach(async x => {
-                                const object_ids = x.objects.map(a => a.id);
-                                const items = await tcapi.viewer.getObjectProperties(x.modelId, object_ids)
-                                let object_statuses = []
-                                let object_properties = []
-                                items.forEach((item, index) => {
-                                    const properties = item.properties
-                                    properties.every(property => {
-                                        if (property.name === 'ASSEMBLY') {
-                                            const asm_properties = property.properties
-                                            let asm_pos = ''
-                                            let guid = ''
-                                            asm_properties.every(asm_property => {
-                                                if (asm_pos !== '' && guid !== '') return false
-                                                if (asm_property.name === 'ASSEMBLY_POS') {
-                                                    asm_pos = asm_property.value
-                                                } else if (asm_property.name === 'GUID') {
-                                                    guid = asm_property.value
-                                                }
-                                                return true
-                                            })
-                                            object_properties.push({
-                                                asmPos: asm_pos,
-                                                guid: guid,
-                                            })
-                                            return false
-                                        }
-                                        return true
-                                    })
-                                })
-                                //Group by asmPos
-                                const group_by_asm_pos = Object.groupBy(object_properties, ({ asmPos }) => asmPos)
-                                console.log(group_by_asm_pos)
-                                Object.entries(group_by_asm_pos).forEach(function ([key, value]) {
-                                    //Get corresponding status in excel file
-                                    const matched_rows = rows.filter(row => key.startsWith(row[col_index_asm_pos]))
-                                    console.log(matched_rows)
-                                    if (matched_rows.length > 0) {
-                                        const fab_status_in_excel = matched_rows[0][col_index_fab_status]
-                                        const fab_qty_in_excel = matched_rows[0][col_index_fab_qty]
-                                        const matched_fab_statuses = fabStatuses.filter(x => x.name.startsWith(fab_status_in_excel))
-                                        let total_num = value.length
-                                        if (typeof fab_qty_in_excel !== 'undefined') total_num = Number(fab_qty_in_excel)
-                                        if (matched_fab_statuses.length > 0) {
-                                            const fab_status_id = matched_fab_statuses[0].id
-                                            for (let i = 0; i < total_num; i++) {
-                                                object_statuses.push({
-                                                    objectId: value[i].guid + '-@-' + x.modelId,
-                                                    statusActionId: fab_status_id,
-                                                    value: 'Completed',
-                                                    valueDate: reportDate
-                                                })
-                                            }
-                                        }
-                                    }
-                                })
-                                console.log(object_statuses)
-                                if (object_statuses.length === 0){
-                                    message.success(`Fabrication status has been updated`)
-                                    return
-                                }
-                                console.log(object_statuses)
-                                const payload = {
-                                    projectId: projectId,
-                                    objFabStatuses: object_statuses
-                                }
-                                dispatch(UpdateObjFabStatusRequest(payload))
-                            })
-                        });
+                            return true
+                        })
+                       
+                        const payload = {
+                            projectId: projectId,
+                            objFabStatuses: object_statuses
+                        }
+                        console.log(object_statuses)
+                        dispatch(UpdateObjFabStatusRequest(payload))
+                        // WorkspaceAPI.connect(window.parent, (event, data) => {
+                        // }).then(async tcapi => {
+                        //     // Get all assemblies
+                        //     const models = await tcapi.viewer.getObjects({
+                        //         parameter: {
+                        //             class: "IFCELEMENTASSEMBLY",
+                        //         },
+                        //     })
+                        //     console.log(models)
+                        //     models.forEach(async x => {
+                        //         const object_ids = x.objects.map(a => a.id);
+                        //         const items = await tcapi.viewer.getObjectProperties(x.modelId, object_ids)
+                        //         let object_statuses = []
+                        //         let object_properties = []
+                        //         items.forEach((item, index) => {
+                        //             const properties = item.properties
+                        //             properties.every(property => {
+                        //                 if (property.name === 'ASSEMBLY') {
+                        //                     const asm_properties = property.properties
+                        //                     let asm_pos = ''
+                        //                     let guid = ''
+                        //                     let weight=''
+                        //                     asm_properties.every(asm_property => {
+                        //                         if (asm_pos !== '' && guid !== '') return false
+                        //                         if (asm_property.name === 'ASSEMBLY_POS') {
+                        //                             asm_pos = asm_property.value
+                        //                         } else if (asm_property.name === 'GUID') {
+                        //                             guid = asm_property.value
+                        //                         }
+                        //                         return true
+                        //                     })
+                        //                     object_properties.push({
+                        //                         asmPos: asm_pos,
+                        //                         guid: guid,
+                        //                     })
+                        //                     return false
+                        //                 }
+                        //                 return true
+                        //             })
+                        //         })
+                        //         //Group by asmPos
+                        //         const group_by_asm_pos = Object.groupBy(object_properties, ({ asmPos }) => asmPos)
+                        //         console.log(group_by_asm_pos)
+                        //         Object.entries(group_by_asm_pos).forEach(function ([key, value]) {
+                        //             //Get corresponding status in excel file
+                        //             const matched_rows = rows.filter(row => key.startsWith(row[col_index_asm_pos]))
+                        //             console.log(matched_rows)
+                        //             if (matched_rows.length > 0) {
+                        //                 const fab_status_in_excel = matched_rows[0][col_index_fab_status]
+                        //                 const fab_qty_in_excel = matched_rows[0][col_index_fab_qty]
+                        //                 const matched_fab_statuses = fabStatuses.filter(x => x.name.startsWith(fab_status_in_excel))
+                        //                 let total_num = value.length
+                        //                 if (typeof fab_qty_in_excel !== 'undefined') total_num = Number(fab_qty_in_excel)
+                        //                 if (matched_fab_statuses.length > 0) {
+                        //                     const fab_status_id = matched_fab_statuses[0].id
+                        //                     for (let i = 0; i < total_num; i++) {
+                        //                         object_statuses.push({
+                        //                             objectId: key+'-@-'+value.length + '-@-' + x.modelId,
+                        //                             statusActionId: fab_status_id,
+                        //                             value: 'Completed',
+                        //                             valueDate: reportDate
+                        //                         })
+                        //                     }
+                        //                 }
+                        //             }
+                        //         })
+                        //         console.log(object_statuses)
+                        //         if (object_statuses.length === 0){
+                        //             message.success(`Fabrication status has been updated`)
+                        //             return
+                        //         }
+                        //         console.log(object_statuses)
+                                
+                        //     })
+                        // });
                     }}>Update</Button>
                 {loading ? (<Spin size="large" />) : null}
             </div>

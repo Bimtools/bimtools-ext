@@ -83,6 +83,7 @@ const FabStatus = () => {
                                         key: 1,
                                         icon: <PieChartFilled />,
                                         onClick: (e) => {
+                                            console.log(projectId)
                                             fabStatuses.every(x => {
                                                 const payload = {
                                                     projectId: projectId,

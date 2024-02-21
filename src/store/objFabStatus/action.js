@@ -33,12 +33,13 @@ export function GetObjFabStatusFailure(){
 }
 export function RepresentObjFabStatusRequest(){
     return{
-        type:actionType.REPRESENT_OBJ_FAB_STATUS_REQUEST,
+        type:actionType.REPRESENT_OBJ_FAB_STATUS_REQUEST
     }
 }
 
-export function RepresentObjFabStatusSuccess(){
+export function RepresentObjFabStatusSuccess(payload){
     return{
         type:actionType.REPRESENT_OBJ_FAB_STATUS_SUCCESS,
+        payload:payload
     }
 }
