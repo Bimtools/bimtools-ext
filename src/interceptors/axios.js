@@ -10,7 +10,7 @@ const axiosConfig = async () => {
     }, function (error) {
         const { config, response: { status } } = error;
         const originalRequest = config;
-        if (status === 401) {
+        if (status !==200) {
             tcapi.extension.requestPermission("accesstoken").then(accessToken => {
                 var myHeaders = new Headers();
                 myHeaders.append("Authorization", 'Bearer ' + accessToken);

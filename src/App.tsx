@@ -18,31 +18,62 @@ function App() {
   useEffect(() => {
     getAccessToken()
   }, [])
-  async function getAccessToken() {
-    const tcapi = await WorkspaceAPI.connect(window.parent)
-    const project = await tcapi.project.getProject()
-    console.log(project)
-    tcapi.extension.requestPermission("accesstoken").then(accessToken => {
-      var myHeaders = new Headers();
-      myHeaders.append("Authorization", 'Bearer ' + accessToken);
+  // async function getAccessToken() {
+  //   const tcapi = await WorkspaceAPI.connect(window.parent)
+  //   const project = await tcapi.project.getProject()
+  //   console.log(project)
+  //   tcapi.extension.requestPermission("accesstoken").then(accessToken => {
+  //     var myHeaders = new Headers();
+  //     myHeaders.append("Authorization", 'Bearer ' + accessToken);
 
-      fetch(`${process.env.REACT_APP_SHARING_API_URI}/auth/token`, {
-        method: 'POST',
-        headers: myHeaders,
-        redirect: 'follow'
-      })
-        .then(response => 
-          response.text()
-        )
-        .then(status_token => {
-          localStorage.setItem('polysus_fab_status_token', status_token.replace(/"/g, ''))
-          dispatch(GetFabStatusRequest({
-            projectId: project.id
-          }))
+  //     fetch(`${process.env.REACT_APP_SHARING_API_URI}/auth/token`, {
+  //       method: 'POST',
+  //       headers: myHeaders,
+  //       redirect: 'follow'
+  //     })
+  //       .then(response => 
+  //         response.text()
+  //       )
+  //       .then(status_token => {
+  //         localStorage.setItem('polysus_fab_status_token', status_token.replace(/"/g, ''))
+  //         console.log(project.id)
+  //         dispatch(GetFabStatusRequest({
+  //           projectId: project.id
+  //         }))
+  //       })
+  //       .catch(error => console.log('error', error));
+  //   })
+  // }
+  function getAccessToken() {
+    WorkspaceAPI.connect(window.parent).then(tcapi => {
+        tcapi.project.getProject().then(project => {
+            console.log(project)
+            tcapi.extension.requestPermission("accesstoken").then(accessToken => {
+                var myHeaders = new Headers();
+                myHeaders.append("Authorization", 'Bearer ' + accessToken);
+
+                fetch(`${process.env.REACT_APP_SHARING_API_URI}/auth/token`, {
+                    method: 'POST',
+                    headers: myHeaders,
+                    redirect: 'follow'
+                })
+                    .then(response =>
+                        response.text()
+                    )
+                    .then(status_token => {
+                        localStorage.setItem('polysus_fab_status_token', status_token.replace(/"/g, ''))
+                        console.log(project.id)
+                        dispatch(GetFabStatusRequest({
+                            projectId: project.id
+                        }))
+                    })
+                    .catch(error => console.log('error', error));
+            })
         })
-        .catch(error => console.log('error', error));
+
     })
-  }
+
+}
   return <div className="App">
     <FabStatus />
   </div>;

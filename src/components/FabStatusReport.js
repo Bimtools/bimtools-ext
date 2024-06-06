@@ -43,7 +43,7 @@ export const options = {
     },
     title: {
       display: true,
-      text: 'Fabrication Status',
+      text: 'Fabrication Progress',
     },
   },
 };
@@ -66,7 +66,7 @@ const FabStatusReport = () => {
       const project = await tcapi.project.getProject()
       fabStatuses.every(x => {
         const payload = {
-          projectId: projectId,
+          projectId: project.id,
           statusActionId: x.id,
         }
         dispatch(GetObjFabStatusRequest(payload))
@@ -263,6 +263,9 @@ const FabStatusReport = () => {
           let report_dates = []
           let datasets = []
           //Group by status
+          objFabStatuses.sort(function (a, b) {
+            return moment(a.reportDate,'YYYY-MM-DD') -  moment(b.reportDate,'YYYY-MM-DD')
+          })
           const group_by_status = Object.groupBy(objFabStatuses, ({ statusActionId }) => statusActionId)
           Object.entries(group_by_status).forEach(function ([key, value]) {
             const matched_fab_statuses = fabStatuses.filter(a => a.id === key)

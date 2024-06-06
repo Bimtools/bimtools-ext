@@ -4,8 +4,12 @@ import { CreateFabStatusSuccess, DeleteFabStatusSuccess, GetFabStatusSuccess } f
 import { message } from "antd";
 
 function* getFabStatusSaga(action) {
+    const token = localStorage.getItem('polysus_fab_status_token');
     const url = `/projects/${action.payload.projectId}/statusactions`
-    const response = yield call(axios.get, url)
+    const response = yield call(axios.get, url,{
+        "Authorization": 'Bearer ' + token
+    })
+    console.log(response)
     const statuses = response.data.map(x => ({
         id: x.id,
         name: x.name

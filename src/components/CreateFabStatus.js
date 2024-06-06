@@ -8,7 +8,6 @@ import { ColorOptions } from '../services/Color';
 import { Colorpicker } from 'antd-colorpicker'
 
 const { Text } = Typography;
-const { Option } = Select;
 const CreateFabStatus = () => {
     const dispatch = useDispatch();
     const [option, setOption] = useState(1);

@@ -1,6 +1,5 @@
 import axios from "axios";
 import { all, call, put, takeLatest, takeEvery } from "redux-saga/effects";
-import * as WorkspaceAPI from "trimble-connect-workspace-api";
 import { message } from "antd";
 import { GetObjFabStatusFailure, GetObjFabStatusSuccess, UpdateObjFabStatusSuccess } from "./action";
 
@@ -28,11 +27,14 @@ function* updateObjFabStatusSaga(action) {
 }
 function* getObjFabStatusSaga(action) {
     try {
-        const url = `${process.env.REACT_APP_SHARING_API_URI}/projects/${action.payload.projectId}/statusevents?statusActionId=${action.payload.statusActionId}`
+        console.log(action.payload)
+        const url = `${process.env.REACT_APP_SHARING_API_URI}/projects/${action.payload.projectId}/status?statusActionId=${action.payload.statusActionId}`
+        console.log(url)
         const response = yield call(axios.get, url)
         const data = response.data.map(x => {
             return {
                 statusActionId: action.payload.statusActionId,
+                asm_pos: x.objectId.split('-@-')[0],
                 fab_qty: Number(x.objectId.split('-@-')[1]),
                 model_total: Number(x.objectId.split('-@-')[2]),
                 asm_weight: Number(x.objectId.split('-@-')[3]),

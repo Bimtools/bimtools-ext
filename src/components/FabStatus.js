@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Button, Layout, Menu, } from 'antd';
+import { Button, Layout, Menu, Switch, } from 'antd';
 import {
     CloudUploadOutlined,
     PieChartFilled,
@@ -12,11 +12,13 @@ import CreateFabStatus from './CreateFabStatus';
 import * as WorkspaceAPI from "trimble-connect-workspace-api";
 import { useDispatch, useSelector } from 'react-redux';
 import { GetFabStatusRequest } from '../store/fabStatus/action';
-import { GetObjFabStatusRequest } from '../store/objFabStatus/action';
+import { GetObjFabStatusRequest, GetObjFabStatusSuccess } from '../store/objFabStatus/action';
+
 
 const FabStatus = () => {
     const [option, setOption] = useState(4)
     const [projectId, setProjectId] = useState('')
+    const [enable, setEnable] = useState(false)
     const fabStatuses = useSelector(state => state.fabStatus.payload);
     const loading = useSelector(state => state.fabStatus.loading);
     const dispatch = useDispatch();
@@ -25,12 +27,42 @@ const FabStatus = () => {
             const tcapi = await WorkspaceAPI.connect(window.parent)
             const project = await tcapi.project.getProject()
             setProjectId(project.id)
-            // dispatch(GetFabStatusRequest({
-            //     projectId: project.id
-            // }))
+            dispatch(GetFabStatusRequest({
+                projectId: project.id
+            }))
         }
         fetchStatus()
     }, [])
+    function getAccessToken() {
+        WorkspaceAPI.connect(window.parent).then(tcapi => {
+            tcapi.project.getProject().then(project => {
+                console.log(project)
+                tcapi.extension.requestPermission("accesstoken").then(accessToken => {
+                    var myHeaders = new Headers();
+                    myHeaders.append("Authorization", 'Bearer ' + accessToken);
+
+                    fetch(`${process.env.REACT_APP_SHARING_API_URI}/auth/token`, {
+                        method: 'POST',
+                        headers: myHeaders,
+                        redirect: 'follow'
+                    })
+                        .then(response =>
+                            response.text()
+                        )
+                        .then(status_token => {
+                            localStorage.setItem('polysus_fab_status_token', status_token.replace(/"/g, ''))
+                            console.log(project.id)
+                            dispatch(GetFabStatusRequest({
+                                projectId: project.id
+                            }))
+                        })
+                        .catch(error => console.log('error', error));
+                })
+            })
+
+        })
+
+    }
     return (
         <Layout>
             <div
@@ -55,7 +87,7 @@ const FabStatus = () => {
                         alignItems: 'center'
                     }}
                 >
-                    Polysus-Fabrication Status
+                    Polysius-Fabrication Status
                 </div>
                 <div
                     style={{
@@ -67,51 +99,58 @@ const FabStatus = () => {
                         marginRight: '5px',
                         columnGap: '2px'
                     }}>
-                    <Menu
-                        style={{
-                            background: '#00a2ff',
-                            color: "#ffffff",
-                        }}
-                        mode="horizontal"
-                        items={[
-                            {
-                                key: 'Options',
-                                icon: <MoreOutlined />,
-                                children: [
-                                    {
-                                        label: 'Fabrication Status Report',
-                                        key: 1,
-                                        icon: <PieChartFilled />,
-                                        onClick: (e) => {
-                                            console.log(projectId)
-                                            fabStatuses.every(x => {
-                                                const payload = {
-                                                    projectId: projectId,
-                                                    statusActionId: x.id,
-                                                }
-                                                dispatch(GetObjFabStatusRequest(payload))
-                                                return true
-                                            })
-                                            setOption(e.key)
-                                        }
-                                    },
-                                    {
-                                        label: 'Update Fabrication Status',
-                                        key: 2,
-                                        icon: <CloudUploadOutlined />,
-                                        onClick: (e) => { setOption(e.key) }
-                                    },
-                                    {
-                                        label: 'Create Fabrication Status',
-                                        key: 3,
-                                        icon: <FileAddOutlined />,
-                                        onClick: (e) => {
-                                            setOption(e.key)
-                                        }
-                                    },
-                                ]
-                            }
-                        ]} />
+                    <Switch onChange={() => {
+                        setEnable(!enable)
+                        getAccessToken()
+                    }} />
+                    {enable ? (
+                        <Menu
+                            style={{
+                                background: '#00a2ff',
+                                color: "#ffffff",
+                            }}
+                            mode="horizontal"
+                            items={[
+                                {
+                                    key: 'Options',
+                                    icon: <MoreOutlined />,
+                                    children: [
+                                        {
+                                            label: 'Fabrication Status Report',
+                                            key: 1,
+                                            icon: <PieChartFilled />,
+                                            onClick: (e) => {
+                                                console.log(projectId)
+                                                dispatch(GetObjFabStatusSuccess([]))
+                                                fabStatuses.every(x => {
+                                                    const payload = {
+                                                        projectId: projectId,
+                                                        statusActionId: x.id,
+                                                    }
+                                                    dispatch(GetObjFabStatusRequest(payload))
+                                                    return true
+                                                })
+                                                setOption(e.key)
+                                            }
+                                        },
+                                        {
+                                            label: 'Update Fabrication Status',
+                                            key: 2,
+                                            icon: <CloudUploadOutlined />,
+                                            onClick: (e) => { setOption(e.key) }
+                                        },
+                                        {
+                                            label: 'Create Fabrication Status',
+                                            key: 3,
+                                            icon: <FileAddOutlined />,
+                                            onClick: (e) => {
+                                                setOption(e.key)
+                                            }
+                                        },
+                                    ]
+                                }
+                            ]} />
+                    ) : null}
                 </div>
             </div>
             <Layout>
@@ -125,7 +164,7 @@ const FabStatus = () => {
                     option == 3 ? <CreateFabStatus /> : null
                 }
                 {
-                    option==4?<div></div>:null
+                    option == 4 ? <div></div> : null
                 }
             </Layout>
         </Layout >
