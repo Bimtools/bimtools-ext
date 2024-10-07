@@ -11,7 +11,7 @@ import FabStatusReport from './FabStatusReport';
 import CreateFabStatus from './CreateFabStatus';
 import * as WorkspaceAPI from "trimble-connect-workspace-api";
 import { useDispatch, useSelector } from 'react-redux';
-import { GetFabStatusRequest } from '../store/fabStatus/action';
+import { GetFabStatusRequest,GetFabStatusSuccess } from '../store/fabStatus/action';
 import { GetObjFabStatusRequest, GetObjFabStatusSuccess } from '../store/objFabStatus/action';
 
 
@@ -37,6 +37,7 @@ const FabStatus = () => {
         WorkspaceAPI.connect(window.parent).then(tcapi => {
             tcapi.project.getProject().then(project => {
                 console.log(project)
+                const projectId = project.id
                 tcapi.extension.requestPermission("accesstoken").then(accessToken => {
                     var myHeaders = new Headers();
                     myHeaders.append("Authorization", 'Bearer ' + accessToken);
@@ -50,11 +51,28 @@ const FabStatus = () => {
                             response.text()
                         )
                         .then(status_token => {
-                            localStorage.setItem('polysus_fab_status_token', status_token.replace(/"/g, ''))
-                            console.log(project.id)
-                            dispatch(GetFabStatusRequest({
-                                projectId: project.id
-                            }))
+                            const token = status_token.replace(/"/g, '')
+                            localStorage.setItem('polysus_fab_status_token', token)
+                            const url = `${process.env.REACT_APP_SHARING_API_URI}/projects/${projectId}/statusactions`
+                            fetch(url,{
+                                method: 'GET',
+                                headers: {
+                                    "Authorization": 'Bearer ' + token
+                                },
+                                redirect: "follow"
+                            })
+                                .then(res=>
+                                    res.text()
+                                )
+                                .then(result=>{
+                                    console.log(result)
+                                     const statuses = JSON.parse(result).map(x => ({
+                                        id: x.id,
+                                        name: x.name
+                                    }))
+                                    dispatch(GetFabStatusSuccess(statuses))
+                                })
+                                .catch(error => console.log('error', error));
                         })
                         .catch(error => console.log('error', error));
                 })
@@ -121,15 +139,15 @@ const FabStatus = () => {
                                             icon: <PieChartFilled />,
                                             onClick: (e) => {
                                                 console.log(projectId)
-                                                dispatch(GetObjFabStatusSuccess([]))
-                                                fabStatuses.every(x => {
-                                                    const payload = {
-                                                        projectId: projectId,
-                                                        statusActionId: x.id,
-                                                    }
-                                                    dispatch(GetObjFabStatusRequest(payload))
-                                                    return true
-                                                })
+                                                //dispatch(GetObjFabStatusSuccess([]))
+                                                // fabStatuses.every(x => {
+                                                //     const payload = {
+                                                //         projectId: projectId,
+                                                //         statusActionId: x.id,
+                                                //     }
+                                                //     dispatch(GetObjFabStatusRequest(payload))
+                                                //     return true
+                                                // })
                                                 setOption(e.key)
                                             }
                                         },

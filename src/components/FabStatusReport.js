@@ -15,6 +15,7 @@ import {
   Legend,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
+import * as XLSX from 'xlsx'
 
 const { Text } = Typography;
 ChartJS.register(
@@ -208,6 +209,7 @@ const FabStatusReport = () => {
             })
             dispatch(RepresentObjFabStatusSuccess(objects_have_fab_status))
           })
+
         }}>Representation</Button>
       </div>
       <List style={{

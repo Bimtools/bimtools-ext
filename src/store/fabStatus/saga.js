@@ -5,6 +5,7 @@ import { message } from "antd";
 
 function* getFabStatusSaga(action) {
     const token = localStorage.getItem('polysus_fab_status_token');
+    console.log("a")
     const url = `/projects/${action.payload.projectId}/statusactions`
     const response = yield call(axios.get, url,{
         "Authorization": 'Bearer ' + token
