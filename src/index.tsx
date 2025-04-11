@@ -6,9 +6,7 @@ import reportWebVitals from './reportWebVitals';
 import store from './store'
 import { Provider } from "react-redux";
 import { BrowserRouter } from 'react-router-dom';
-import axiosConfig from './interceptors/axios';
 
-axiosConfig()
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );

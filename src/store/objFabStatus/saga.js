@@ -1,24 +1,15 @@
 import axios from "axios";
-import { all, call, put, takeLatest, takeEvery } from "redux-saga/effects";
+import { all, call, put, takeLatest, takeEvery, fork } from "redux-saga/effects";
 import { message } from "antd";
 import { GetObjFabStatusFailure, GetObjFabStatusSuccess, UpdateObjFabStatusSuccess } from "./action";
+import instance from "../../interceptors/axios";
 
 function* updateObjFabStatusSaga(action) {
     try {
         const url = `/projects/${action.payload.projectId}/statusevents`
-        const response = yield call(axios.post, url, action.payload.objFabStatuses)   
-        console.log(response.data)   
-        const data = response.data.map(x => {
-            return {
-                statusActionId: x.statusActionId,
-                asm_pos: x.objectId.split('-@-')[0],
-                fab_qty: Number(x.objectId.split('-@-')[1]),
-                model_total: Number(x.objectId.split('-@-')[2]),
-                asm_weight: Number(x.objectId.split('-@-')[3]),
-                reportDate: x.valueDate
-            }
-        })
-        yield put(UpdateObjFabStatusSuccess(data))
+        const response = yield call(instance.post, url, action.payload.objFabStatuses)
+        console.log(response)
+        yield put(UpdateObjFabStatusSuccess())
         message.success(`Fabrication status has been updated`)
     } catch (exception) {
         message.error(`Oops! Something went wrong. Please try again`)
@@ -28,9 +19,9 @@ function* updateObjFabStatusSaga(action) {
 function* getObjFabStatusSaga(action) {
     try {
         console.log(action.payload)
-        const url = `${process.env.REACT_APP_SHARING_API_URI}/projects/${action.payload.projectId}/status?statusActionId=${action.payload.statusActionId}`
+        const url = `/projects/${action.payload.projectId}/status?statusActionId=${action.payload.statusActionId}`
         console.log(url)
-        const response = yield call(axios.get, url)
+        const response = yield call(instance.get, url)
         const data = response.data.map(x => {
             return {
                 statusActionId: action.payload.statusActionId,
@@ -47,7 +38,6 @@ function* getObjFabStatusSaga(action) {
     } catch (exception) {
         console.log(exception)
         yield put(GetObjFabStatusFailure())
-       
     }
 }
 

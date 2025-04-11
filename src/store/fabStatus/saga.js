@@ -1,15 +1,11 @@
 import axios from "axios";
-import { all, call, put, takeLatest, takeEvery } from "redux-saga/effects";
+import { all, call, put, takeLatest, takeEvery,fork } from "redux-saga/effects";
 import { CreateFabStatusSuccess, DeleteFabStatusSuccess, GetFabStatusSuccess } from "./action";
-import { message } from "antd";
+import instance from "../../interceptors/axios";
 
 function* getFabStatusSaga(action) {
-    const token = localStorage.getItem('polysus_fab_status_token');
-    console.log("a")
     const url = `/projects/${action.payload.projectId}/statusactions`
-    const response = yield call(axios.get, url,{
-        "Authorization": 'Bearer ' + token
-    })
+    const response = yield call(instance.get, url)
     console.log(response)
     const statuses = response.data.map(x => ({
         id: x.id,
@@ -20,7 +16,7 @@ function* getFabStatusSaga(action) {
 function* createFabStatusSaga(action) {
     try {
         const url = `/projects/${action.payload.projectId}/statusactions`
-        const response = yield call(axios.post, url, action.payload.fabStatus)
+        const response = yield call(instance.post, url, action.payload.fabStatus)
         yield put(CreateFabStatusSuccess({
             id: response.data.id,
             name: action.payload.fabStatus.name
@@ -32,7 +28,7 @@ function* createFabStatusSaga(action) {
 function* deleteFabStatusSaga(action) {
     try {
         const url = `/projects/${action.payload.projectId}/statusactions/${action.payload.id}`
-        const response = yield call(axios.delete, url)
+        const response = yield call(instance.delete, url)
         yield put(DeleteFabStatusSuccess(action.payload.id))
     } catch (exception) {
         console.log(exception)
@@ -40,9 +36,8 @@ function* deleteFabStatusSaga(action) {
 }
 
 function* fabStatusSaga() {
-    yield takeEvery('GET_FAB_STATUS_REQUEST', getFabStatusSaga)
+    yield takeLatest('GET_FAB_STATUS_REQUEST', getFabStatusSaga)
     yield takeEvery('CREATE_FAB_STATUS_REQUEST', createFabStatusSaga)
     yield takeEvery('DELETE_FAB_STATUS_REQUEST', deleteFabStatusSaga)
-
 }
 export default fabStatusSaga

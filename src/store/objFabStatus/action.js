@@ -7,10 +7,9 @@ export function UpdateObjFabStatusRequest(payload){
     }
 }
 
-export function UpdateObjFabStatusSuccess(payload){
+export function UpdateObjFabStatusSuccess(){
     return{
         type:actionType.UPDATE_OBJ_FAB_STATUS_SUCCESS,
-        payload:payload
     }
 }
 export function GetObjFabStatusRequest(payload){

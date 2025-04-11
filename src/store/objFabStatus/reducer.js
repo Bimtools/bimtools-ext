@@ -16,7 +16,6 @@ const reducers = (state = initialState, action) => {
             return {
                 ...state,
                 pending: false,
-                payload: [...action.payload]
             }
         case type.UPDATE_OBJ_FAB_STATUS_FAILURE:
             return {

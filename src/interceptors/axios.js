@@ -1,42 +1,49 @@
 import axios from "axios";
 import * as WorkspaceAPI from "trimble-connect-workspace-api";
 
-const axiosConfig = async () => {
-    const tcapi = await WorkspaceAPI.connect(window.parent)
-    axios.defaults.baseURL = process.env.REACT_APP_SHARING_API_URI
-
-    axios.interceptors.response.use(function (response) {
-        return response;
-    }, function (error) {
-        const { config, response: { status } } = error;
-        const originalRequest = config;
-        if (status !==200) {
-            tcapi.extension.requestPermission("accesstoken").then(accessToken => {
-                var myHeaders = new Headers();
-                myHeaders.append("Authorization", 'Bearer ' + accessToken);
-                var requestOptions = {
-                    method: 'POST',
-                    headers: myHeaders,
-                    redirect: 'follow'
-                };
-
-                fetch(`${process.env.REACT_APP_SHARING_API_URI}/auth/token`, requestOptions)
-                    .then(response => response.text())
-                    .then(status_token => {
-                        localStorage.setItem('polysus_fab_status_token', status_token.replace(/"/g, ''))
-                        return axios(originalRequest);
-                    })
-                    .catch(error => console.log('error', error));
-            })
-        }
-        return Promise.reject(error);
-    });
-    axios.interceptors.request.use(config => {
-        const token = localStorage.getItem('polysus_fab_status_token');
-        if (token) {
-            config.headers['Authorization'] = 'Bearer ' + token;
-        }
-        return config;
-    });
+function getLocalToken() {
+    const token = localStorage.getItem('polysus_fab_status_token');
+    console.log('token from local storage')
+    return token
 }
-export default axiosConfig;
+
+const instance = axios.create({
+    baseURL: process.env.REACT_APP_SHARING_API_URI,
+    headers: {
+        'Content-Type': 'application/json',
+    }
+})
+
+instance.setToken = (token) => {
+    instance.defaults.headers['Authorization'] = 'Bearer ' + token
+    window.localStorage.setItem('polysus_fab_status_token', token)
+}
+
+instance.interceptors.request.use(request => {
+    const token = getLocalToken()
+    if (token) {
+        request.headers['Authorization'] = 'Bearer ' + token
+        request.baseURL = process.env.REACT_APP_SHARING_API_URI
+    }
+    return request
+}, error => {
+    return Promise.reject(error)
+})
+instance.interceptors.response.use(response => {
+    return response
+}, async (error) => {
+    if(error.response && error.response.status === 401){
+        console.error('Error status', error.response.status)
+        const tcapi = await WorkspaceAPI.connect(window.parent)
+        tcapi.extension.requestPermission("accesstoken").then(token => {
+            instance.setToken(token)
+            error.config.headers['Authorization'] = 'Bearer ' + token
+            error.config.baseURL = process.env.REACT_APP_SHARING_API_URI
+        })
+        return instance(error.config)
+    }else{
+        return Promise.reject(error);
+    }
+})
+
+export default instance
