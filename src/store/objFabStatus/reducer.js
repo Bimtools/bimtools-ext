@@ -45,6 +45,7 @@ const reducers = (state = initialState, action) => {
             return {
                 ...state,
                 objects: [
+                    ...state.objects,
                     ...action.payload],
                 pending: false,
             }

@@ -12,10 +12,15 @@ export function UpdateObjFabStatusSuccess(){
         type:actionType.UPDATE_OBJ_FAB_STATUS_SUCCESS,
     }
 }
+export function UpdateObjFabStatusFailure(){
+    return{
+        type:actionType.UPDATE_OBJ_FAB_STATUS_FAILURE,
+    }
+}
 export function GetObjFabStatusRequest(payload){
     return{
         type:actionType.GET_OBJ_FAB_STATUS_REQUEST,
-        payload:payload
+        payload:payload,
     }
 }
 

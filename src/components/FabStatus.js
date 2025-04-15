@@ -18,6 +18,7 @@ import { GetObjFabStatusRequest, GetObjFabStatusSuccess } from '../store/objFabS
 const FabStatus = () => {
     const [option, setOption] = useState(4)
     const [projectId, setProjectId] = useState('')
+    const [tcapi, setTcapi] = useState();
     const [enable, setEnable] = useState(false)
     const fabStatuses = useSelector(state => state.fabStatus.payload);
     const loading = useSelector(state => state.fabStatus.loading);
@@ -27,6 +28,7 @@ const FabStatus = () => {
             const tcapi = await WorkspaceAPI.connect(window.parent)
             const project = await tcapi.project.getProject()
             setProjectId(project.id)
+            setTcapi(tcapi)
             dispatch(GetFabStatusRequest({
                 projectId: project.id
             }))
@@ -85,17 +87,10 @@ const FabStatus = () => {
                                         key: 1,
                                         icon: <PieChartFilled />,
                                         onClick: (e) => {
-                                            console.log(projectId)
-                                            //dispatch(GetObjFabStatusSuccess([]))
-                                            // fabStatuses.every(x => {
-                                            //     const payload = {
-                                            //         projectId: projectId,
-                                            //         statusActionId: x.id,
-                                            //     }
-                                            //     dispatch(GetObjFabStatusRequest(payload))
-                                            //     return true
-                                            // })
                                             setOption(e.key)
+                                            dispatch(GetObjFabStatusRequest({
+                                                projectId: projectId
+                                            }))
                                         }
                                     },
                                     {
@@ -110,6 +105,9 @@ const FabStatus = () => {
                                         icon: <FileAddOutlined />,
                                         onClick: (e) => {
                                             setOption(e.key)
+                                            dispatch(GetFabStatusRequest({
+                                                projectId: projectId
+                                            }))
                                         }
                                     },
                                 ]

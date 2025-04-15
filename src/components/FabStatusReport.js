@@ -3,6 +3,7 @@ import { Input, Divider, Typography, Button, List, message, Select } from 'antd'
 import * as WorkspaceAPI from "trimble-connect-workspace-api";
 import { useDispatch, useSelector } from "react-redux";
 import { GetObjFabStatusRequest, RepresentObjFabStatusRequest, RepresentObjFabStatusSuccess, UpdateObjFabStatusRequest, UpdateObjFabStatusSuccess } from '../store/objFabStatus/action';
+import { GetFabStatusRequest } from '../store/fabStatus/action'
 import moment from 'moment';
 import {
   Chart as ChartJS,
@@ -65,19 +66,12 @@ const FabStatusReport = () => {
     async function getProjectId() {
       const tcapi = await WorkspaceAPI.connect(window.parent)
       const project = await tcapi.project.getProject()
-      fabStatuses.every(x => {
-        const payload = {
-          projectId: project.id,
-          statusActionId: x.id,
-        }
-        dispatch(GetObjFabStatusRequest(payload))
-        return true
-      })
       setProjectId(project.id)
       setTcapi(tcapi)
     }
     getProjectId()
   }, [])
+
   return (
     <>
       <Divider>Fabrication Status Report</Divider>
@@ -86,29 +80,13 @@ const FabStatusReport = () => {
         style={{
           display: "flex",
           flexDirection: 'row',
-          justifyContent: 'space-between',
+          justifyContent: 'flex-end',
           flexWrap: "wrap",
           columnGap: "5px",
           rowGap: "5px",
           margin: '2px'
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            flexDirection: 'row',
-            justifyContent: 'center',
-          }}
-        >
-          <Select placeholder='Report Date' value={reportDate} onChange={(e) => {
-            setReportDate(e)
-          }
-          }>
-            {Object.entries(Object.groupBy(objFabStatuses, ({ reportDate }) => moment(reportDate).format('YYYY-MM-DD'))).map(function ([key, value]) {
-              return <Select.Option key={key} value={key}>{key}</Select.Option>
-            })}
-          </Select>
-        </div>
         <Button type="primary" disabled={loading} onClick={async () => {
           dispatch(RepresentObjFabStatusSuccess([]))
           dispatch(RepresentObjFabStatusRequest())
@@ -149,7 +127,7 @@ const FabStatusReport = () => {
                 return true
               })
               //Get objects which have a fabrication status
-              const matched_obj = objFabStatuses.filter(obj => obj.asm_pos == asm_pos && obj.reportDate.startsWith(reportDate) && typeof obj.statusActionId !== 'undefined')
+              const matched_obj = objFabStatuses.filter(obj => obj.asm_pos == asm_pos && typeof obj.statusActionId !== 'undefined')
               if (matched_obj.length === 0) {
                 objects_have_fab_status.push({
                   modeId: x.modelId,
@@ -173,7 +151,6 @@ const FabStatusReport = () => {
                     color: color,
                     status: status,
                     statusId: matched_obj[0].statusActionId,
-                    reportDate: reportDate,
                     asm_pos: asm_pos,
                   })
                 }
@@ -209,7 +186,6 @@ const FabStatusReport = () => {
             })
             dispatch(RepresentObjFabStatusSuccess(objects_have_fab_status))
           })
-
         }}>Representation</Button>
       </div>
       <List style={{
@@ -228,9 +204,9 @@ const FabStatusReport = () => {
             }}
             onClick={() => {
               console.log(modelStatuses)
-              const matched_obj = modelStatuses.filter(obj => obj.statusId == item.id && obj.reportDate.startsWith(reportDate))
+              const matched_obj = modelStatuses.filter(obj => obj.statusId == item.id)
+              console.log(item)
               const group_by_model_id = Object.groupBy(matched_obj, ({ modeId }) => modeId)
-              console.log(group_by_model_id)
               let objs_by_status = []
               Object.entries(group_by_model_id).forEach(function ([key, value]) {
                 console.log(key)
@@ -253,7 +229,7 @@ const FabStatusReport = () => {
           </List.Item>
         )}
       />
-      <div
+      {/* <div
         style={{
           display: "flex",
           flexDirection: 'row',
@@ -309,7 +285,7 @@ const FabStatusReport = () => {
           Fabrication Report
         </Button>
       </div>
-      {typeof reportData !== 'undefined' ? (<Line options={options} data={reportData} />) : null}
+      {typeof reportData !== 'undefined' ? (<Line options={options} data={reportData} />) : null} */}
     </>
   )
 }

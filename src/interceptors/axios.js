@@ -32,16 +32,23 @@ instance.interceptors.request.use(request => {
 instance.interceptors.response.use(response => {
     return response
 }, async (error) => {
-    if(error.response && error.response.status === 401){
+    if (error.response && error.response.status === 401) {
         console.error('Error status', error.response.status)
         const tcapi = await WorkspaceAPI.connect(window.parent)
-        tcapi.extension.requestPermission("accesstoken").then(token => {
-            instance.setToken(token)
-            error.config.headers['Authorization'] = 'Bearer ' + token
-            error.config.baseURL = process.env.REACT_APP_SHARING_API_URI
+        const token = await tcapi.extension.requestPermission("accesstoken")
+        const url = `${process.env.REACT_APP_SHARING_API_URI}/auth/token`
+        const response = await axios.post(url, {}, {
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            }
         })
+        instance.setToken(response.data)
+        console.log('Get new token from server')
+        error.config.headers['Authorization'] = 'Bearer ' + response.data
+        error.config.baseURL = process.env.REACT_APP_SHARING_API_URI
         return instance(error.config)
-    }else{
+    } else {
         return Promise.reject(error);
     }
 })

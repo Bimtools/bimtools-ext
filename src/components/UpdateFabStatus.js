@@ -7,6 +7,7 @@ import {
 } from "@ant-design/icons";
 import { useDispatch, useSelector } from 'react-redux';
 import { UpdateObjFabStatusRequest } from '../store/objFabStatus/action';
+import { GetFabStatusRequest, GetFabStatusSuccess } from '../store/fabStatus/action';
 function LettersToNumber(letters) {
     for (var p = 0, n = 0; p < letters.length; p++) {
         n = letters[p].charCodeAt() - 64 + n * 26;
@@ -24,7 +25,6 @@ const UpdateFabStatus = () => {
     const [colModelTotal, setColModelTotal] = useState();
     const [colFabStatus, setColFabStatus] = useState();
     const [projectId, setProjectId] = useState('')
-    const [reportDate, setReportDate] = useState()
     const dummyRequest = ({ file, onSuccess }) => {
         const promise = new Promise((resolve, reject) => {
             const fileReader = new FileReader();
@@ -69,11 +69,13 @@ const UpdateFabStatus = () => {
     const fabStatuses = useSelector(state => state.fabStatus.payload);
     const loading = useSelector(state => state.objFabStatus.pending);
     useEffect(() => {
-        console.log(loading)
         async function getProjectId() {
             const tcapi = await WorkspaceAPI.connect(window.parent)
             const project = await tcapi.project.getProject()
             setProjectId(project.id)
+            dispatch(GetFabStatusRequest({
+                projectId: project.id
+            }))
         }
         getProjectId()
     }, [loading])
@@ -120,25 +122,6 @@ const UpdateFabStatus = () => {
                     <Input placeholder="Fabrication Status" required onChange={(e) => setColFabStatus(e.target.value)} />
                 </Col>
             </Row>
-            <Row style={{ margin: '2px' }}>
-                <Col span={8}><Text ellipsis>Report Date</Text></Col>
-                <Col span={16}>
-                    <div
-                        style={{
-                            display: "flex",
-                            alignItems: 'center',
-                            flexDirection: "row",
-                            justifyContent: 'space-between',
-                            marginTop: '5px',
-                            marginRight: '5px',
-                            columnGap: '2px'
-                        }}>
-                        <DatePicker format={'YYYY-MM-DD'} onChange={(date, dateString) => {
-                            setReportDate(dateString)
-                        }} />
-                    </div>
-                </Col>
-            </Row>
 
             <div
                 containeer
@@ -159,35 +142,36 @@ const UpdateFabStatus = () => {
                         const col_index_fab_status = LettersToNumber(colFabStatus)
                         const col_index_asm_weight = LettersToNumber(colWeight)
                         const col_index_model_total = LettersToNumber(colModelTotal)
+                        console.log(fabStatuses)
                         let object_statuses = []
-                        rows.every(x=>{
+                        rows.every(x => {
                             const asm_model_total = Number(x[col_index_model_total])
-                            if(typeof asm_model_total ==='undefined' || asm_model_total <=0) return true
+                            if (typeof asm_model_total === 'undefined' || asm_model_total <= 0) return true
                             const asm_weight = Number(x[col_index_asm_weight])
-                            if(typeof asm_weight ==='undefined' || asm_weight <=0) return true
+                            if (typeof asm_weight === 'undefined' || asm_weight <= 0) return true
                             const fab_status_in_excel = x[col_index_fab_status]
                             const matched_fab_statuses = fabStatuses.filter(x => x.name.startsWith(fab_status_in_excel))
-                            if(matched_fab_statuses.length === 0) return true
+                            if (matched_fab_statuses.length === 0) return true
                             const asm_pos_in_excel = x[col_index_asm_pos]
-                            if(typeof asm_pos_in_excel === 'undefined' || asm_pos_in_excel==='') return true
+                            if (typeof asm_pos_in_excel === 'undefined' || asm_pos_in_excel === '') return true
                             let fab_qty_in_excel = x[col_index_fab_qty]
-                            if(typeof fab_qty_in_excel === 'undefined' || fab_qty_in_excel==='') return true
+                            if (typeof fab_qty_in_excel === 'undefined' || fab_qty_in_excel === '') return true
                             const fab_status_id = matched_fab_statuses[0].id
                             object_statuses.push({
-                                objectId: asm_pos_in_excel+'-@-'+fab_qty_in_excel+'-@-'+asm_model_total+'-@-'+asm_weight,
+                                objectId: asm_pos_in_excel + '-@-' + fab_qty_in_excel + '-@-' + asm_model_total + '-@-' + asm_weight,
                                 statusActionId: fab_status_id,
                                 value: 'Completed',
-                                valueDate: reportDate
+                                valueDate: '2025-04-01T00:00:00Z'
                             })
                             return true
                         })
-                       
+
                         const payload = {
                             projectId: projectId,
                             objFabStatuses: object_statuses
                         }
                         console.log(object_statuses)
-                        // dispatch(UpdateObjFabStatusRequest(payload))
+                        dispatch(UpdateObjFabStatusRequest(payload))
                     }}>Update</Button>
                 {loading ? (<Spin size="large" />) : null}
             </div>

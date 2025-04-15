@@ -1,7 +1,7 @@
 import axios from "axios";
 import { all, call, put, takeLatest, takeEvery, fork } from "redux-saga/effects";
 import { message } from "antd";
-import { GetObjFabStatusFailure, GetObjFabStatusSuccess, UpdateObjFabStatusSuccess } from "./action";
+import { GetObjFabStatusFailure, GetObjFabStatusSuccess, UpdateObjFabStatusFailure, UpdateObjFabStatusSuccess } from "./action";
 import instance from "../../interceptors/axios";
 
 function* updateObjFabStatusSaga(action) {
@@ -13,23 +13,19 @@ function* updateObjFabStatusSaga(action) {
         message.success(`Fabrication status has been updated`)
     } catch (exception) {
         message.error(`Oops! Something went wrong. Please try again`)
+        yield put(UpdateObjFabStatusFailure())
         console.log(exception)
     }
 }
 function* getObjFabStatusSaga(action) {
     try {
-        console.log(action.payload)
-        const url = `/projects/${action.payload.projectId}/status?statusActionId=${action.payload.statusActionId}`
-        console.log(url)
+        const url = `/projects/${action.payload.projectId}/status`
         const response = yield call(instance.get, url)
         const data = response.data.map(x => {
             return {
-                statusActionId: action.payload.statusActionId,
+                statusActionId: x.statusActionId,
                 asm_pos: x.objectId.split('-@-')[0],
                 fab_qty: Number(x.objectId.split('-@-')[1]),
-                model_total: Number(x.objectId.split('-@-')[2]),
-                asm_weight: Number(x.objectId.split('-@-')[3]),
-                reportDate: x.valueDate
             }
         })
         if (data.length === 0) return
