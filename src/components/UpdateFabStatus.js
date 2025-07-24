@@ -44,6 +44,7 @@ const UpdateFabStatus = () => {
 
         promise.then((d) => {
             setRows(d);
+            console.log(JSON.stringify(d)) 
         });
         onSuccess("ok");
     };
