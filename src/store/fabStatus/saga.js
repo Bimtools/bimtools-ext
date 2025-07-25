@@ -15,22 +15,46 @@ import {
 import instance from "../../interceptors/axios";
 
 function* getFabStatusSaga(action) {
-  const url = `/projects/${action.payload.projectId}/statusactions`;
-  const response = yield call(instance.get, url);
-  const statuses = response.data.map((x) => ({
-    id: x.id,
-    name: x.name,
-  }));
-  yield put(GetFabStatusSuccess(statuses));
+  //Check FabStatusFolder
+  const getFolderUrl = `/folders/by_path?path=${action.payload.projectName}&projectId=${action.payload.projectId}`;
+  const response = yield call(instance.get, getFolderUrl);
+  const folders = response.data.filter((x) => x.name === "FabricationStatus");
+  console.log(folders);
+  if (folders.length == 0) {
+    const insertFolderUrl = `/folders`;
+    const insertFolderResponse = yield call(instance.post, insertFolderUrl, {
+      name: "FabricationStatus",
+      parentId: response.data[0].parentId,
+    });
+    yield put(
+      GetFabStatusSuccess({
+        folderId: insertFolderResponse.id,
+        statuses: [],
+      })
+    );
+  } else {
+    const getCommentUrl = `/comments?objectId=${folders[0].id}&objectType=FOLDER`;
+    const commentResponse = yield call(instance.get, getCommentUrl);
+    const statuses = commentResponse.data.map((x) => ({
+      id: x.id,
+      name: x.description,
+    }));
+    yield put(
+      GetFabStatusSuccess({
+        folderId: folders[0].id,
+        statuses: statuses,
+      })
+    );
+  }
 }
 function* createFabStatusSaga(action) {
   try {
-    const url = `/projects/${action.payload.projectId}/statusactions`;
-    const response = yield call(instance.post, url, action.payload.fabStatus);
+    const url = `\comments`;
+    const response = yield call(instance.post, url, action.payload);
     yield put(
       CreateFabStatusSuccess({
         id: response.data.id,
-        name: action.payload.fabStatus.name,
+        name: action.payload.description,
       })
     );
   } catch (exception) {
@@ -39,37 +63,20 @@ function* createFabStatusSaga(action) {
 }
 function* deleteFabStatusSaga(action) {
   try {
-    // const url = `/projects/${action.payload.projectId}/statusactions/${action.payload.id}`
-    // const response = yield call(instance.delete, url)
-    // yield put(DeleteFabStatusSuccess(action.payload.id))
-    const token = localStorage.getItem("trimbleToken");
-    const url = `https://app21.connect.trimble.com/tc/api/2.0/comments`;
-    for (let i = 0; i < 1000; i++) {
-      const response = yield call(
-        axios.post,
-        url,
-        {
-          objectId: "cNizqPDWZGo",
-          objectType: "FOLDER",
-          description: "Test Comment "+i,
-          contextId: "",
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: "Bearer " + token,
-          },
-        }
-      );
-      console.log(response);
-    }
+    const url = `comments/${action.payload.id}`;
+    const response = yield call(instance.delete, url);
+    yield put(
+      DeleteFabStatusSuccess({
+        id: action.payload.id,
+      })
+    );
   } catch (exception) {
     console.log(exception);
   }
 }
 
 function* fabStatusSaga() {
-  yield takeLatest("GET_FAB_STATUS_REQUEST", getFabStatusSaga);
+  yield takeEvery("GET_FAB_STATUS_REQUEST", getFabStatusSaga);
   yield takeEvery("CREATE_FAB_STATUS_REQUEST", createFabStatusSaga);
   yield takeEvery("DELETE_FAB_STATUS_REQUEST", deleteFabStatusSaga);
 }

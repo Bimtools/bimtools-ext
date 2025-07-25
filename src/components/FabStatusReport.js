@@ -32,6 +32,7 @@ import {
 import { Line } from "react-chartjs-2";
 import * as XLSX from "xlsx";
 import { Format } from "../services/GUIDConversion";
+import { GetReportDateRequest } from "../store/reportDate/action";
 
 const { Text } = Typography;
 ChartJS.register(
@@ -68,21 +69,29 @@ export const options = {
 const FabStatusReport = () => {
   const dispatch = useDispatch();
   const [projectId, setProjectId] = useState("");
+  const [projectName, setProjectName] = useState("");
   const [tcapi, setTcapi] = useState();
-  const [reportDate, setReportDate] = useState();
+  const [reportDate, setReportDate] = useState(undefined);
   const [reportData, setReportData] = useState();
-  const [reportDates, setReportDates] = useState([]);
 
   const fabStatuses = useSelector((state) => state.fabStatus.payload);
   const objFabStatuses = useSelector((state) => state.objFabStatus.payload);
   const modelStatuses = useSelector((state) => state.objFabStatus.objects);
+  const reportDates = useSelector((state) => state.reportDate.payload);
   const loading = useSelector((state) => state.objFabStatus.pending);
   useEffect(() => {
     async function getProjectId() {
       const tcapi = await WorkspaceAPI.connect(window.parent);
       const project = await tcapi.project.getProject();
       setProjectId(project.id);
+      setProjectName(project.name);
       setTcapi(tcapi);
+      dispatch(
+        GetReportDateRequest({
+          projectId: project.id,
+          projectName: project.name,
+        })
+      );
     }
     getProjectId();
   }, []);
@@ -102,6 +111,24 @@ const FabStatusReport = () => {
           margin: "2px",
         }}
       >
+        <Select
+          style={{ width: 120 }}
+          optionFilterProp="children"
+          value={reportDate}
+          options={reportDates}
+          onChange={(value) => {
+            const selectedReportDate = reportDates.filter(
+              (x) => x.value === value
+            );
+            setReportDate(selectedReportDate);
+            dispatch(
+              GetObjFabStatusRequest({
+                folderId: value,
+              })
+            );
+          }}
+          placeholder="Report Date"
+        />
         <Button
           type="primary"
           disabled={loading}
@@ -118,7 +145,6 @@ const FabStatusReport = () => {
               const token = await tcapi.extension.requestPermission(
                 "accesstoken"
               );
-              console.log(token)
               const items = await tcapi.viewer.getObjectProperties(
                 x.modelId,
                 object_ids
@@ -133,7 +159,7 @@ const FabStatusReport = () => {
                     asm_properties.every((asm_property) => {
                       if (asm_pos !== "") return false;
                       if (asm_property.name.trim() === "ASSEMBLY_POS") {
-                        asm_pos = asm_property.value;
+                        asm_pos = asm_property.value.replace("(?)", "");
                       }
                       return true;
                     });
@@ -153,15 +179,12 @@ const FabStatusReport = () => {
                   }
                   return true;
                 });
-                if(asm_pos === '5C1.CU10-C0015'){
-                  const objId1 = await tcapi.viewer.convertToObjectIds(x.modelId,[item.id])
-                  console.log(objId1)
-                }
+
                 //Get objects which have a fabrication status
                 const matched_obj = objFabStatuses.filter(
                   (obj) =>
-                    obj.asm_pos == asm_pos &&
-                    typeof obj.statusActionId !== "undefined"
+                    obj.asmPos == asm_pos &&
+                    typeof obj.fabStatusId !== "undefined"
                 );
                 if (matched_obj.length === 0) {
                   objects_have_fab_status.push({
@@ -175,13 +198,13 @@ const FabStatusReport = () => {
                   });
                 } else {
                   const matched_fab_statuses = fabStatuses.filter(
-                    (a) => a.id === matched_obj[0].statusActionId
+                    (a) => a.id === matched_obj[0].fabStatusId
                   );
                   const color = matched_fab_statuses[0].name.split("=")[1];
                   const status = matched_fab_statuses[0].name.split("=")[0];
-                  const fab_qty = Number(matched_obj[0].fab_qty);
+                  const fab_qty = Number(matched_obj[0].fabQty);
                   const existing_asm_pos = objects_have_fab_status.filter(
-                    (obj) => obj.asm_pos === asm_pos
+                    (obj) => obj.asmPos === asm_pos
                   );
                   if (existing_asm_pos.length < fab_qty || fab_qty === 0) {
                     objects_have_fab_status.push({
@@ -189,7 +212,7 @@ const FabStatusReport = () => {
                       id: item.id,
                       color: color,
                       status: status,
-                      statusId: matched_obj[0].statusActionId,
+                      statusId: matched_obj[0].fabStatusId,
                       asm_pos: asm_pos,
                     });
                   }
@@ -288,63 +311,6 @@ const FabStatusReport = () => {
           </List.Item>
         )}
       />
-      {/* <div
-        style={{
-          display: "flex",
-          flexDirection: 'row',
-          justifyContent: 'flex-end',
-          margin: '5px'
-        }}
-      >
-        <Button type="primary" onClick={() => {
-          let report_dates = []
-          let datasets = []
-          //Group by status
-          objFabStatuses.sort(function (a, b) {
-            return moment(a.reportDate,'YYYY-MM-DD') -  moment(b.reportDate,'YYYY-MM-DD')
-          })
-          const group_by_status = Object.groupBy(objFabStatuses, ({ statusActionId }) => statusActionId)
-          Object.entries(group_by_status).forEach(function ([key, value]) {
-            const matched_fab_statuses = fabStatuses.filter(a => a.id === key)
-            const color = matched_fab_statuses[0].name.split('=')[1]
-            const status = matched_fab_statuses[0].name.split('=')[0]
-            //Group by report date
-            const group_by_date = Object.groupBy(value, ({ reportDate }) => reportDate)
-            let data = []
-            Object.entries(group_by_date).forEach(function ([key, value]) {
-              const report_date = key.substring(0, 10)
-              if (!report_dates.includes(report_date)) {
-                report_dates.push(report_date)
-              }
-              const weight = value.reduce((accumulator, object) => {
-                return accumulator + object.asm_weight;
-              }, 0);
-              if (isNaN(weight)) {
-                data.push(0)
-              } else {
-                data.push(weight)
-              }
-
-            })
-            datasets.push({
-              label: status,
-              data: data,
-              borderColor: color,
-              backgroundColor: color
-            })
-          })
-          console.log(datasets)
-          console.log(report_dates)
-          setReportData({
-            labels: report_dates,
-            datasets: datasets
-          })
-          console.log(reportData)
-        }}>
-          Fabrication Report
-        </Button>
-      </div>
-      {typeof reportData !== 'undefined' ? (<Line options={options} data={reportData} />) : null} */}
     </>
   );
 };

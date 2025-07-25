@@ -38,12 +38,19 @@ const CreateFabStatus = () => {
     },
   });
   const fabStatuses = useSelector((state) => state.fabStatus.payload);
+  const folderId = useSelector((state) => state.fabStatus.folderId);
   const loading = useSelector((state) => state.fabStatus.pending);
   useEffect(() => {
     async function getProjectId() {
       const tcapi = await WorkspaceAPI.connect(window.parent);
       const project = await tcapi.project.getProject();
       setProjectId(project.id);
+      dispatch(
+        GetFabStatusRequest({
+          projectId: project.id,
+          projectName: project.name,
+        })
+      );
     }
     getProjectId();
   }, []);
@@ -109,17 +116,14 @@ const CreateFabStatus = () => {
               icon={<FileAddOutlined />}
               onClick={() => {
                 const payload = {
-                  projectId: projectId,
-                  fabStatus: {
-                    isPublic: true,
-                    name:
-                      fabStatus +
-                      "=" +
-                      `rgb(${color.rgb.r ?? 0},${color.rgb.g ?? 0},${
-                        color.rgb.b ?? 0
-                      })`,
-                    allowedValues: "Completed",
-                  },
+                  objectId: folderId,
+                  objectType: "FOLDER",
+                  description:
+                    fabStatus +
+                    "=" +
+                    `rgb(${color.rgb.r ?? 0},${color.rgb.g ?? 0},${
+                      color.rgb.b ?? 0
+                    })`,
                 };
                 dispatch(CreateFabStatusRequest(payload));
               }}
@@ -148,7 +152,6 @@ const CreateFabStatus = () => {
               onConfirm={() => {
                 dispatch(
                   DeleteFabStatusRequest({
-                    projectId: projectId,
                     id: item.id,
                   })
                 );

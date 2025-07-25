@@ -42,6 +42,7 @@ const FabStatus = () => {
       dispatch(
         GetFabStatusRequest({
           projectId: project.id,
+          projectName:project.name
         })
       );
     }
@@ -125,6 +126,7 @@ const FabStatus = () => {
                       dispatch(
                         GetFabStatusRequest({
                           projectId: projectId,
+                          projectName: projectName
                         })
                       );
                     },

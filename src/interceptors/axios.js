@@ -2,13 +2,13 @@ import axios from "axios";
 import * as WorkspaceAPI from "trimble-connect-workspace-api";
 
 function getLocalToken() {
-    const token = localStorage.getItem('polysus_fab_status_token');
+    const token = localStorage.getItem('trimbleToken');
     console.log('token from local storage')
     return token
 }
 
 const instance = axios.create({
-    baseURL: process.env.REACT_APP_SHARING_API_URI,
+    baseURL: process.env.REACT_APP_TC_URL,
     headers: {
         'Content-Type': 'application/json',
     }
@@ -16,14 +16,14 @@ const instance = axios.create({
 
 instance.setToken = (token) => {
     instance.defaults.headers['Authorization'] = 'Bearer ' + token
-    window.localStorage.setItem('polysus_fab_status_token', token)
+    window.localStorage.setItem('trimbleToken', token)
 }
 
 instance.interceptors.request.use(request => {
     const token = getLocalToken()
     if (token) {
         request.headers['Authorization'] = 'Bearer ' + token
-        request.baseURL = process.env.REACT_APP_SHARING_API_URI
+        request.baseURL = process.env.REACT_APP_TC_URL
     }
     return request
 }, error => {
@@ -36,17 +36,9 @@ instance.interceptors.response.use(response => {
         console.error('Error status', error.response.status)
         const tcapi = await WorkspaceAPI.connect(window.parent)
         const token = await tcapi.extension.requestPermission("accesstoken")
-        const url = `${process.env.REACT_APP_SHARING_API_URI}/auth/token`
-        const response = await axios.post(url, {}, {
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + token
-            }
-        })
-        instance.setToken(response.data)
         console.log('Get new token from server')
-        error.config.headers['Authorization'] = 'Bearer ' + response.data
-        error.config.baseURL = process.env.REACT_APP_SHARING_API_URI
+        error.config.headers['Authorization'] = 'Bearer ' + token
+        error.config.baseURL = process.env.REACT_APP_TC_URL
         return instance(error.config)
     } else {
         return Promise.reject(error);

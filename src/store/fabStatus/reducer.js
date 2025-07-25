@@ -1,6 +1,7 @@
 import * as type from './actionTypes';
 const initialState = {
     payload: [],
+    folderId:null,
     pending: false,
     error: null,
 }
@@ -15,8 +16,9 @@ const reducers = (state = initialState, action) => {
             return {
                 ...state,
                 pending: false,
+                folderId: action.payload.folderId,
                 payload: [
-                    ...action.payload
+                    ...action.payload.statuses
                 ]
             }
         case type.GET_FAB_STATUS_FAILURE:
@@ -52,7 +54,7 @@ const reducers = (state = initialState, action) => {
                 pending: true
             }
         case type.DELETE_FAB_STATUS_SUCCESS:
-            const remaining = state.payload.filter(x => x.id !== action.payload)
+            const remaining = state.payload.filter(x => x.id !== action.payload.id)
             return {
                 ...state,
                 pending: false,
