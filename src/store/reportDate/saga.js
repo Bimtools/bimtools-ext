@@ -15,13 +15,13 @@ function* getReportDateSaga(action) {
   try {
     const getFolderUrl = `/folders/by_path?path=${action.payload.projectName}/FabricationStatus&projectId=${action.payload.projectId}`;
     const response = yield call(instance.get, getFolderUrl);
-    console.log(getFolderUrl);
     const folders = response.data.map((x) => {
       return {
         value: x.id,
         label: x.name,
       };
     });
+    folders.sort((a, b) => new Date(b.label) - new Date(a.label));
     yield put(GetReportDateSuccess(folders));
   } catch (exception) {
     message.error(`Oops! Something went wrong. Please try again`);

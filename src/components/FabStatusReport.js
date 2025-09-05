@@ -68,17 +68,20 @@ export const options = {
 
 const FabStatusReport = () => {
   const dispatch = useDispatch();
-  const [projectId, setProjectId] = useState("");
-  const [projectName, setProjectName] = useState("");
-  const [tcapi, setTcapi] = useState();
-  const [reportDate, setReportDate] = useState(undefined);
-  const [reportData, setReportData] = useState();
 
   const fabStatuses = useSelector((state) => state.fabStatus.payload);
   const objFabStatuses = useSelector((state) => state.objFabStatus.payload);
   const modelStatuses = useSelector((state) => state.objFabStatus.objects);
   const reportDates = useSelector((state) => state.reportDate.payload);
   const loading = useSelector((state) => state.objFabStatus.pending);
+
+  const [projectId, setProjectId] = useState("");
+  const [projectName, setProjectName] = useState("");
+  const [tcapi, setTcapi] = useState();
+  const [reportDate, setReportDate] = useState(undefined);
+  const [reportData, setReportData] = useState();
+
+
   useEffect(() => {
     async function getProjectId() {
       const tcapi = await WorkspaceAPI.connect(window.parent);
@@ -297,6 +300,7 @@ const FabStatusReport = () => {
                   objectRuntimeIds: objects_id,
                 });
               });
+              tcapi.viewer.u
               tcapi.viewer.setSelection(
                 {
                   modelObjectIds: [...objs_by_status],
